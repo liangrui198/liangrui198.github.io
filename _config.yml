@@ -30,3 +30,12 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - vendor
+
+# 添加以下配置
+sass:
+  load_paths:
+    - _sass  # 显式指定自定义Sass路径
+
+# 确保包含必要的插件
+plugins:
+  - jekyll-sass-converter

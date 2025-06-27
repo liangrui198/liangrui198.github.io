@@ -45,9 +45,15 @@ permalink:                /:categories/:year-:month-:day-:title:output_ext
 
 # Disqus comments
 # disqushandler:            sighingnow
+include:
+  - assets
+  - _sass
+  - _includes
+  - assets
 
 exclude:
   - _drafts
+
 
 collections:
   pages:

@@ -2,7 +2,7 @@
 title:            Jekyll Gitbook
 longtitle:        Jekyll Gitbook
 author:           HE Tao
-email:            sighingnow@gmail.com
+email:            liangrui198@gmail.com
 description: >
   Build Jekyll site with the GitBook style.
 
@@ -22,7 +22,7 @@ toc:
   h_max:   3
 
 # customize the link favicon in header, will be {{site.baseurl}}/{{site.favicon_path}}
-favicon_path:     /assets/gitbook/images/favicon.ico
+favicon_path:     liangrui198.github.io/assets/gitbook/images/favicon.ico
 
 # markdown render engine.
 markdown:         kramdown

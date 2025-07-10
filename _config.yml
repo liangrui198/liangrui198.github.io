@@ -1,13 +1,13 @@
 # Configurations
-title:            Jekyll Gitbook
-longtitle:        Jekyll Gitbook
-author:           HE Tao
+title:            大数据知识记录
+longtitle:        hadoop,spark,hive,ambari,kdc
+author:           Roy liang
 email:            liangrui198@gmail.com
 description: >
-  Build Jekyll site with the GitBook style.
+  hello gitbook
 
 version:          1.0
-gitbook_version:  3.2.3
+gitbook_version:  1.0.0
 
 url:              'https://liangrui198.github.io'
 baseurl:          ''

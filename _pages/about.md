@@ -6,4 +6,7 @@ category: Jekyll
 layout: post
 ---
 
-This is an about page.
+# 关于我
+###
+# 关于博客内容
+### 这个博客会分享一些关于hadoop相关知识，在使用和运维方向的技术。

@@ -77,6 +77,10 @@ collections:
     permalink: /:collection/:path
     title: Spark实战
 
+include:
+  - _hadoop
+  - _spark
+
 defaults:
   - scope:
       path: "_hadoop"

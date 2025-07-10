@@ -80,6 +80,7 @@ ordered_collections:
   - posts
   - pages
   - others
+  - kerberos
 
 page_width: 800px
 

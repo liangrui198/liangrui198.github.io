@@ -12,10 +12,11 @@
   {% endfor %}
 </nav>
 
-{% raw %}{% for collection in site.collections %}
-  {% if collection.label != 'posts' %}
-  <a href="/{{ collection.label }}/">{{ collection.title }}</a>
-  {% endif %}
+{% raw %}{% assign collections = site.collections | where_exp:"col","col.label != 'posts'" %}
+{% for col in collections %}
+  <a href="{{ col.label | relative_url }}" class="{% if page.collection == col.label %}active{% endif %}">
+    {{ col.title }}
+  </a>
 {% endfor %}{% endraw %}
 <div class="nav-category">
   <a href="/hadoop/">Hadoop</a>

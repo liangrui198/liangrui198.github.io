@@ -1,5 +1,5 @@
 # Configurations
-title:            大数据知识记录
+title:            大数据技术栈分享
 longtitle:        hadoop,spark,hive,ambari,kdc
 author:           Roy liang
 email:            liangrui198@gmail.com
@@ -75,7 +75,7 @@ defaults:
       type: categories
     values:
       layout: category
-      
+
 ordered_collections:
   - posts
   - pages

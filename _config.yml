@@ -68,27 +68,27 @@ collections:
     permalink: /categories/:name/  # 自定义分类页URL
   hadoop:
     output: true
-    permalink: /hadoop/:path/
+    permalink: /:collection/:path
+    title: Hadoop技术栈
+    docs:
+      - _hadoop/*.md
   spark:
     output: true
-    permalink: /spark/:path/
+    permalink: /:collection/:path
     title: Spark实战
-  
 
-# 默认分类设置
 defaults:
   - scope:
-      path: ""
-      type: categories
-    values:
-      layout: category
-  - scope:
       path: "_hadoop"
+      type: hadoop
     values:
+      layout: post
       category: hadoop
   - scope:
       path: "_spark"
+      type: spark
     values:
+      layout: post
       category: spark
 
 ordered_collections:

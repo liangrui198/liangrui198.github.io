@@ -63,7 +63,19 @@ collections:
   others:
     output: true
     permalink: /:collection/:path/
+  categories:
+    output: true  # 为每个分类生成独立页面
+    permalink: /categories/:name/  # 自定义分类页URL
+  
 
+# 默认分类设置
+defaults:
+  - scope:
+      path: ""
+      type: categories
+    values:
+      layout: category
+      
 ordered_collections:
   - posts
   - pages

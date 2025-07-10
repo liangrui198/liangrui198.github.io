@@ -1,0 +1,14 @@
+---
+layout: default
+---
+<h1>{{ page.title }} 分类</h1>
+<p>共 {{ site.categories[page.category] | size }} 篇文章</p>
+
+<ul>
+  {% for post in site.categories[page.category] %}
+    <li>
+      <a href="{{ post.url }}">{{ post.title }}</a>
+      <span>({{ post.date | date: "%Y-%m-%d" }})</span>
+    </li>
+  {% endfor %}
+</ul>

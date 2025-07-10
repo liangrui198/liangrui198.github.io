@@ -1,0 +1,13 @@
+<nav>
+  <a href="/">首页</a>
+  <a href="/categories">所有分类</a>
+  
+  {% comment %} 显示前5个主要分类 {% endcomment %}
+  {% assign sorted_categories = site.categories | sort %}
+  {% for category in sorted_categories limit:5 %}
+    {% capture category_name %}{{ category | first }}{% endcapture %}
+    <a href="/categories/{{ category_name | slugify }}">
+      {{ category_name }}
+    </a>
+  {% endfor %}
+</nav>

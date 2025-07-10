@@ -1,0 +1,16 @@
+---
+title: 博客分类
+layout: page
+---
+<h1>所有分类</h1>
+
+<ul>
+  {% for category in site.categories %}
+    {% capture category_name %}{{ category | first }}{% endcapture %}
+    <li>
+      <a href="/categories/{{ category_name | slugify }}">
+        {{ category_name }} ({{ category[1] | size }})
+      </a>
+    </li>
+  {% endfor %}
+</ul>

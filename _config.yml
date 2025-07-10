@@ -69,9 +69,10 @@ collections:
   hadoop:
     output: true
     permalink: /hadoop/:path/
-  spark: 
+  spark:
     output: true
-    permalink: /spark/:path/  
+    permalink: /spark/:path/
+    title: Spark实战
   
 
 # 默认分类设置
@@ -81,6 +82,14 @@ defaults:
       type: categories
     values:
       layout: category
+  - scope:
+      path: "_hadoop"
+    values:
+      category: hadoop
+  - scope:
+      path: "_spark"
+    values:
+      category: spark
 
 ordered_collections:
   - posts

@@ -66,6 +66,12 @@ collections:
   categories:
     output: true  # 为每个分类生成独立页面
     permalink: /categories/:name/  # 自定义分类页URL
+  hadoop:
+    output: true
+    permalink: /hadoop/:path/
+  spark: 
+    output: true
+    permalink: /spark/:path/  
   
 
 # 默认分类设置

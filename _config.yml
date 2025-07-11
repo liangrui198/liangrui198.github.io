@@ -22,7 +22,7 @@ toc:
   h_max:   3
 
 # customize the link favicon in header, will be {{site.baseurl}}/{{site.favicon_path}}
-favicon_path:     liangrui198.github.io/assets/gitbook/images/favicon.ico
+favicon_path:     /assets/gitbook/images/favicon.ico
 
 # markdown render engine.
 markdown:         kramdown
@@ -45,68 +45,26 @@ permalink:                /:categories/:year-:month-:day-:title:output_ext
 
 # Disqus comments
 # disqushandler:            sighingnow
-include:
- - assets
- - _sass
- - _includes
- - _layouts
- - _posts
- - _data
- - _spark
 
 exclude:
   - _drafts
-
 
 collections:
   pages:
     output: true
     permalink: /:collection/:path/
-  data:
-    output: true
-    permalink: /:collection/:path/  
   others:
     output: true
     permalink: /:collection/:path/
-  categories:
-    output: true  # 为每个分类生成独立页面
-    permalink: /categories/:name/  # 自定义分类页URL
   hadoop:
     output: true
-    permalink: /:collection/:path
-    title: Hadoop技术栈
-    docs:
-      - _hadoop/*.md
-  spark:
-    output: true
-    permalink: /:collection/:path
-    title: Spark实战
-
-include:
-  - _hadoop
-  - _spark
-  - _data
-
-defaults:
-  - scope:
-      path: "_hadoop"
-      type: hadoop
-    values:
-      layout: post
-      category: hadoop
-  - scope:
-      path: "_spark"
-      type: spark
-    values:
-      layout: post
-      category: spark
+    permalink: /:collection/:path/  
 
 ordered_collections:
   - posts
   - pages
   - others
-  - kerberos
-  - data
+  - hadoop
 
 page_width: 800px
 

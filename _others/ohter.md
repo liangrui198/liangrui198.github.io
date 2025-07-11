@@ -6,4 +6,4 @@ category: Jekyll
 layout: post
 ---
 
-xxxxx
+This is an ohter page.

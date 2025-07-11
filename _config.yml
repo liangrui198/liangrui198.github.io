@@ -58,6 +58,12 @@ collections:
     permalink: /:collection/:path/
   hadoop:
     output: true
+    permalink: /:collection/hadoop/:path/  
+  spark:
+    output: true
+    permalink: /:collection/:path/ 
+  kerberos:
+    output: true
     permalink: /:collection/:path/  
 
 ordered_collections:

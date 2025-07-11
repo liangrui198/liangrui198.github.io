@@ -6,4 +6,6 @@ category: Jekyll
 layout: post
 ---
 
-This is an contact page.
+Email:linagrui_1988@126.com
+QQ:1067165280
+Blog:https://liangrui198.github.io/

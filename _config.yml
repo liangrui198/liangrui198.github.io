@@ -1,3 +1,4 @@
+# 主题配置
 theme: minima
 
 # 插件管理
@@ -28,5 +29,11 @@ description: 基于Jekyll构建的静态站点
 url: "https://liangrui198.github.io"  # 必须包含协议头
 baseurl: ""  # 必须保持为空值
 
-# 主题配置
-theme: minima
+# 新增构建环境配置
+jekyll_env: production
+compress_html:
+  clippings:    all
+  comments:     all
+  blanklines:   all
+  profile:      false
+

@@ -1,7 +1,8 @@
 ---
 layout: default
-title: Spark
+title:  hdfs EC实现和应用
 ---
+
 <link rel="stylesheet" href="/assets/blog.css">
 <script>
 function toggleBlogNav() {
@@ -9,13 +10,18 @@ function toggleBlogNav() {
   nav.classList.toggle('collapsed');
 }
 </script>
-<div class="blog-layout">
   <nav class="blog-nav">
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
     {% include blog_navigation.html items=site.data.blog_navigation %}
   </nav>
-  <div class="blog-content">
-    <h1>hdfs</h1>
-    <p>这里是 hdfs 二级分类页面。</p>
-  </div>
-</div>
+
+# hdfs EC实现和应用
+
+  - 支持列表
+  - 支持标题
+  - 支持代码块
+
+  ```python
+  print('Hello hdfs ec!')
+  ```
+

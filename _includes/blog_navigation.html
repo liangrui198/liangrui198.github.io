@@ -1,14 +1,103 @@
 {% comment %}
-  递归渲染 blog 三级菜单
-  用法：{% include blog_navigation.html items=site.data.blog_navigation %}
+  可折叠多级菜单，当前文章高亮
 {% endcomment %}
-<ul class="blog-nav">
+<ul class="blog-nav-list">
   {% for item in include.items %}
-    <li>
-      <a href="{{ item.url }}">{{ item.title }}</a>
+    {% assign is_active = false %}
+    {% if page.url == item.url or page.url contains item.url %}
+      {% assign is_active = true %}
+    {% endif %}
+    <li class="blog-nav-item{% if is_active %} active{% endif %}">
       {% if item.children %}
-        {% include blog_navigation.html items=item.children %}
+        <!-- <span class="toggle-btn" onclick="toggleSubMenu(this)">&#9654;</span> -->
+<span class="toggle-btn" onclick="toggleSubMenu(this)">
+  <svg class="arrow-icon" width="16" height="16" viewBox="0 0 24 24">
+    <polyline points="8 10 12 14 16 10" fill="none" stroke="#1890ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</span>
+
+      {% endif %}
+      <a href="{{ item.url | default: '#' }}" class="blog-nav-link{% if is_active %} active{% endif %}">{{ item.title }}</a>
+      {% if item.children %}
+        <ul class="blog-nav-list submenu collapsed">
+          {% include blog_navigation.html items=item.children %}
+        </ul>
       {% endif %}
     </li>
   {% endfor %}
 </ul>
+<script>
+function toggleSubMenu(btn) {
+  var submenu = btn.parentNode.querySelector('.submenu');
+  if (submenu) {
+    submenu.classList.toggle('collapsed');
+    btn.classList.toggle('open');
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  // 默认展开当前激活项
+  var active = document.querySelector('.blog-nav-item.active > .blog-nav-link');
+  if(active) {
+    var parent = active.parentNode;
+    while(parent && parent.classList) {
+      var submenu = parent.querySelector('.submenu');
+      var btn = parent.querySelector('.toggle-btn');
+      if(submenu && btn) {
+        submenu.classList.remove('collapsed');
+        btn.classList.add('open');
+      }
+      parent = parent.parentNode.closest('.blog-nav-item');
+    }
+  }
+});
+
+
+</script>
+<style>
+
+ .arrow-icon {
+  transition: transform 0.2s;
+  vertical-align: middle;
+}
+.toggle-btn.open .arrow-icon {
+  transform: rotate(180deg);
+}
+.blog-nav-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.blog-nav-item {
+  margin-bottom: 0.5em;
+  position: relative;
+}
+.blog-nav-link {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 4px;
+  color: #333;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+  font-size: 1.15em;
+}
+.blog-nav-link.active, .blog-nav-item.active > .blog-nav-link {
+  background: #e6f7ff;
+  color: #1890ff;
+  font-weight: bold;
+}
+.toggle-btn {
+  cursor: pointer;
+  font-size: 1em;
+  margin-right: 4px;
+  user-select: none;
+}
+.submenu {
+  margin-left: 1em;
+  border-left: 2px solid #f0f0f0;
+  padding-left: 0.5em;
+  display: block;
+}
+.submenu.collapsed {
+  display: none;
+}
+</style>

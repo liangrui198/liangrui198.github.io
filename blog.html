@@ -1,44 +1,90 @@
+---
+layout: default
+title: Blog
+---
+<link rel="stylesheet" href="/assets/blog.css">
+<div class="blog-main-layout">
+  <aside class="blog-main-sidebar">
+    {% include blog_navigation.html items=site.data.blog_navigation %}
+  </aside>
+  <main class="blog-main-content">
+    <h1>最新博客文章</h1>
+    <ul class="blog-post-list">
+      {% for post in site.posts limit:10 %}
+        <li class="blog-post-item">
+          <a class="blog-post-title" href="{{ post.url }}">{{ post.title }}</a>
+          <span class="blog-post-date">{{ post.date | date: '%Y-%m-%d' }}</span>
+          <p class="blog-post-excerpt">{{ post.excerpt | strip_html | truncate: 80 }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+  </main>
+</div>
 <style>
-body {
-  margin: 0;
-  padding: 0;
-}
-.blog-layout {
+.blog-main-layout {
   display: flex;
   align-items: flex-start;
+  gap: 2em;
 }
-.blog-nav {
+.blog-main-sidebar {
   min-width: 220px;
-  width: 220px;
-  margin-right: 2em;
-  border-right: 1px solid #eee;
-  padding-right: 1em;
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
+  max-width: 260px;
   background: #fafbfc;
-  z-index: 10;
+  border-right: 1px solid #eee;
+  padding: 1em 1em 1em 0;
+  height: 100vh;
   overflow-y: auto;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.03);
+  position: sticky;
+  top: 0;
 }
-.blog-content {
+.blog-main-content {
   flex: 1;
-  margin-left: 240px;
   max-width: 900px;
+  padding: 2em 0;
 }
-@media (max-width: 700px) {
-  .blog-nav {
+.blog-post-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.blog-post-item {
+  margin-bottom: 2em;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 1em;
+}
+.blog-post-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #1890ff;
+  text-decoration: none;
+}
+.blog-post-title:hover {
+  text-decoration: underline;
+}
+.blog-post-date {
+  color: #888;
+  font-size: 0.95em;
+  margin-left: 1em;
+}
+.blog-post-excerpt {
+  color: #555;
+  margin: 0.5em 0 0 0;
+}
+@media (max-width: 900px) {
+  .blog-main-layout {
+    flex-direction: column;
+  }
+  .blog-main-sidebar {
     position: static;
     width: 100%;
+    max-width: 100%;
     height: auto;
-    box-shadow: none;
     border-right: none;
-    margin-right: 0;
-    padding-right: 0;
+    border-bottom: 1px solid #eee;
+    padding: 1em 0;
   }
-  .blog-content {
-    margin-left: 0;
+  .blog-main-content {
+    padding: 1em 0;
   }
 }
 </style>

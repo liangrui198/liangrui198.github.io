@@ -2,11 +2,11 @@
   url: /blog/bigdata/
   children:
     - title: Hadoop
-      url: /blog/bigdata/hadoop/
       children:
         - title: HDFS
-          url: /blog/bigdata/hadoop/hdfs/
           children:
+            - title: EC实现
+              url: /blog/bigdata/hadoop/hdfs/erasure-coding.html
             - title: index2
               url: /blog/bigdata/hadoop/hdfs/index2.html
         - title: MapReduce
@@ -17,9 +17,7 @@
   url: /blog/ai/
   children:
     - title: 机器学习
-      url: /blog/ai/ml/
     - title: 深度学习
-      url: /blog/ai/dl/
       children:
             - title: markdown-demo
               url: /blog/ai/ml/markdown-demo.html

@@ -1,0 +1,14 @@
+{% comment %}
+  递归渲染 blog 三级菜单
+  用法：{% include blog_navigation.html items=site.data.blog_navigation %}
+{% endcomment %}
+<ul class="blog-nav">
+  {% for item in include.items %}
+    <li>
+      <a href="{{ item.url }}">{{ item.title }}</a>
+      {% if item.children %}
+        {% include blog_navigation.html items=item.children %}
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>

@@ -1,0 +1,29 @@
+---
+layout: default
+title: 深度学习
+---
+<style>
+.main-layout {
+  display: flex;
+  align-items: flex-start;
+}
+.side-nav {
+  min-width: 220px;
+  margin-right: 2em;
+  border-right: 1px solid #eee;
+  padding-right: 1em;
+}
+.main-content {
+  flex: 1;
+}
+</style>
+<div class="main-layout">
+  <nav class="side-nav">
+    {% include blog_navigation.html items=site.data.blog_navigation %}
+  </nav>
+  <div class="main-content">
+    <h1>欢迎访问我的博客！</h1>
+    <p>这里是首页内容。</p>
+  </div>
+</div>
+

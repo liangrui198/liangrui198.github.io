@@ -1,3 +1,0 @@
-# bigdata
-
-hello blog

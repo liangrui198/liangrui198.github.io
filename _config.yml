@@ -1,39 +1,51 @@
-# 主题配置
+# Jekyll 配置文件
+
+# 站点设置
+# 这些变量可在模板中通过 {{ site.title }} 等方式访问
+
+title: hello blog
+email: 1067165280@qq.com
+description: >-
+  博客是用jekyll默认主题构建的，用于记录大数据相关知识。
+baseurl: "" # 站点子路径，如 /blog
+url: "" # 站点主域名，如 http://example.com
+twitter_username: twiter
+github_username:  liangrui198
+title: 大数据相关记录
+
+# 构建设置
 theme: minima
 
-# 插件管理
 plugins:
   - jekyll-feed
   - jekyll-sitemap
+  - jekyll-seo-tag
 
-# 数据源配置
-data_source: _data
+# 排除不处理的文件和文件夹
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
 
-# 导航配置
-include:
-  - navigation.yml
+collections:
+  authors:
+    output: true
 
-# 构建配置
-markdown: kramdown
-highlighter: rouge
+defaults:
+  - scope:
+      path: ""
+      type: "authors"
+    values:
+      layout: "author"
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+  - scope:
+      path: ""
+    values:
+      layout: "default"
 
-# 开发服务器配置
-development:
-  host: 127.0.0.1
-  port: 4000
-  show_dir_listing: false
-
-# 基础配置
-title: 我的Jekyll网站
-description: 基于Jekyll构建的静态站点
-url: "https://liangrui198.github.io"  # 必须包含协议头
-baseurl: ""  # 必须保持为空值
-
-# 新增构建环境配置
-jekyll_env: production
-compress_html:
-  clippings:    all
-  comments:     all
-  blanklines:   all
-  profile:      false
-
+show_excerpts: true

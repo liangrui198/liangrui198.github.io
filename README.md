@@ -1,4 +1,4 @@
-# 博客是用jekyll默认主题构建的，用于记录大数据相关知识。
+## 博客是用jekyll默认主题构建，用于记录大数据相关知识。
 
   blog:https://liangrui198.github.io/
 

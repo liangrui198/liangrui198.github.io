@@ -3,3 +3,5 @@ _site
 /_site/*
 
 
+/_site/feed.xml
+/_site/sitemap.xml

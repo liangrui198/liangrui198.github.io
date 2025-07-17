@@ -7,7 +7,7 @@
     {% if page.url == item.url or page.url contains item.url %}
       {% assign is_active = true %}
     {% endif %}
-    <li class="blog-nav-item{% if is_active %} active{% endif %}">
+    <li class="blog-nav-item{% if is_active %} active{% endif %}" style="font-size: 0.98em;color: #ce4b4b">
       {% if item.children %}
         <!-- <span class="toggle-btn" onclick="toggleSubMenu(this)">&#9654;</span> -->
 <span class="toggle-btn" onclick="toggleSubMenu(this)">
@@ -125,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
   transition: background 0.2s, color 0.2s;
   font-size: 1.15em;
 }
+
 .blog-nav-link.active, .blog-nav-item.active > .blog-nav-link {
   background: #e6f7ff;
   color: #1890ff;

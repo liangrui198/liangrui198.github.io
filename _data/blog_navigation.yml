@@ -7,8 +7,17 @@
           children:
             - title: EC实现
               url: /blog/bigdata/hadoop/hdfs/erasure-coding.html
-            - title: index2
-              url: /blog/bigdata/hadoop/hdfs/index2.html
+            - title: 扩展第三台nn
+              url: /blog/bigdata/hadoop/hdfs/add-nn.html
+            - title: ambari扩容多个联邦集群
+              url: /blog/bigdata/hadoop/hdfs/add-federation.html
+        - title: Yarn
+          children:
+            - title: yarn超卖内存实现
+              url: /blog/bigdata/hadoop/yarn/yarn-elastic.html
+            - title: jdk-codeCache-bug修复
+              url: /blog/bigdata/hadoop/yarn/yarn-jdk-codeCache.html
+
         - title: MapReduce
           url: /blog/bigdata/hadoop/mapreduce/
     - title: Spark

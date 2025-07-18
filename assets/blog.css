@@ -1,6 +1,28 @@
+/* 博客正文内容间距优化 */
+.blog-content p,
+.blog-content ul,
+.blog-content ol,
+.blog-content pre,
+.blog-content table,
+.blog-content blockquote,
+.blog-content img {
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+.blog-content h1,
+.blog-content h2,
+.blog-content h3,
+.blog-content h4,
+.blog-content h5,
+.blog-content h6 {
+  margin-top: 2em;
+  margin-bottom: 1em;
+}
 body {
   margin: 0;
   padding: 0;
+  font-size: 1.18em;
+  line-height: 1.85;
 }
 .blog-layout {
   display: flex;
@@ -43,6 +65,7 @@ body {
   margin-left: 240px;
   max-width: 900px;
   transition: margin-left 0.2s;
+  font-size: 1.08em;
 }
 .blog-nav.collapsed ~ .blog-content {
   margin-left: 60px;

@@ -1,6 +1,6 @@
 ---
 layout: default
-title:  Yarn超卖内存实现
+title:  YARN超卖内存实现
 author: liangrui
 ---
 

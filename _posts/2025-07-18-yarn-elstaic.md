@@ -235,7 +235,7 @@ yarn.maximum-failed-containers = 默认=-n  -n就是TaskManager 容器
 例：./bin/yarn-session.sh -n 5  # 请求 5 个 TaskManager 容器 此时，yarn.maximum-failed-containers 的默认值即为 5。若失败容器数超过此值，YARN 会话将终止。
 ```
 
-##### 导致异常解决方案：
+##### mr&spark task异常配置
 
 ```
 #MR

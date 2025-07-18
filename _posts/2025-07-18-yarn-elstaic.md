@@ -306,11 +306,13 @@ document.addEventListener('DOMContentLoaded', function() {
   var outline = document.getElementById('outline-list');
   if (outline) {
     document.querySelectorAll('h2').forEach(function(h, i) {
+      var txt = h.textContent.replace(/^#+/, '').trim();
+      if (txt === '博客记录') return;
       if (!h.id) h.id = 'outline-h2-' + i;
       var li = document.createElement('li');
       var a = document.createElement('a');
       a.href = '#' + h.id;
-      a.textContent = h.textContent.replace(/^#+/, '').trim();
+      a.textContent = txt;
       li.appendChild(a);
       outline.appendChild(li);
     });

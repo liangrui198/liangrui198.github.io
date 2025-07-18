@@ -23,7 +23,6 @@
     - title: Spark
       url: /blog/bigdata/spark/
 - title: 大数据运维
-  url: /blog/ops/
   children:
     - title: 监控服务
       children:

@@ -1,3 +1,7 @@
+/* 菜单栏文字调小 */
+.blog-nav-link {
+  font-size: 0.85em;
+}
 /* 图片点击弹窗放大样式 */
 .img-popup-mask {
   position: fixed;
@@ -63,7 +67,7 @@
 body {
   margin: 0;
   padding: 0;
-  font-size: 1em;
+  font-size: 0.85em;
   line-height: 1.7;
 }
 .blog-layout {
@@ -98,7 +102,7 @@ body {
   border: none;
   width: 100%;
   text-align: right;
-  font-size: 1em;
+  font-size: 0.85em;
   cursor: pointer;
   margin-bottom: 1em;
 }
@@ -107,7 +111,7 @@ body {
   margin-left: 240px;
   max-width: 900px;
   transition: margin-left 0.2s;
-  font-size: 0.95em;
+  font-size: 0.85em;
 }
 .blog-nav.collapsed ~ .blog-content {
   margin-left: 60px;

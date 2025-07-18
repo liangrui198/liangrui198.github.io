@@ -22,6 +22,17 @@
           url: /blog/bigdata/hadoop/mapreduce/
     - title: Spark
       url: /blog/bigdata/spark/
+- title: 大数据运维
+  url: /blog/ops/
+  children:
+    - title: 监控服务
+      children:
+            - title: cortex统一监控存储
+              url: /blog/bigdata/ops/cortex.html
+    - title: 告警服务
+      children:
+            - title: 统一告警
+              url: /blog/bigdata/ops/alter.html                   
 - title: AI
   url: /blog/ai/
   children:

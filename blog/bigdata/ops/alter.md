@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <link rel="stylesheet" href="/assets/blog.css">
+<script src="/assets/blog.js"></script>
 <script>
 function toggleBlogNav() {
   var nav = document.querySelector('.blog-nav');

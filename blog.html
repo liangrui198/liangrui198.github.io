@@ -8,7 +8,7 @@ title: Blog
     {% include blog_navigation.html items=site.data.blog_navigation %}
   </aside>
   <main class="blog-main-content">
-    <h1>最新博客文章</h1>
+    <h1>推荐博客文章</h1>
     <ul class="blog-post-list">
       {% for post in site.posts limit:10 %}
         <li class="blog-post-item">
@@ -39,8 +39,8 @@ title: Blog
 }
 .blog-main-content {
   flex: 1;
-  max-width: 900px;
-  padding: 2em 0;
+  max-width: 1200px;
+  padding: 1.2em 0;
 }
 .blog-post-list {
   list-style: none;
@@ -70,7 +70,7 @@ title: Blog
   color: #555;
   margin: 0.5em 0 0 0;
 }
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
   .blog-main-layout {
     flex-direction: column;
   }

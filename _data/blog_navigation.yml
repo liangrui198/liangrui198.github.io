@@ -7,14 +7,14 @@
           children:
             - title: EC实现
               url: /blog/bigdata/hadoop/hdfs/erasure-coding.html
-            - title: 扩展第三台nn
+            - title: 扩展三台nn备节点
               url: /blog/bigdata/hadoop/hdfs/add-nn.html
-            - title: ambari扩容多个联邦集群
+            - title: 扩容多个联邦
               url: /blog/bigdata/hadoop/hdfs/add-federation.html
         - title: Yarn
           children:
             - title: yarn超卖内存实现
-              url: /blog/bigdata/hadoop/yarn/yarn-elastic.html
+              url: /_posts/2025-07-18-yarn-elstaic.md
             - title: jdk-codeCache-bug修复
               url: /blog/bigdata/hadoop/yarn/yarn-jdk-codeCache.html
 

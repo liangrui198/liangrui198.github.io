@@ -2,14 +2,12 @@
 layout: default
 title:  扩展第三台nn
 ---
-
+# jdk8存在codeCache bug，这里介绍调试优化过程，和优化后的指标提升
 
 <div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
   <strong>大纲：</strong>
   <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
 </div>
-
-# jdk8存在codeCache bug，这里介绍调试优化过程，和优化后的指标提升
 
 ## 问题描述
 nm服务启动大约在7-8天后，ContainerLaunchDurationAvgTime持续变长，进程启动6天左右后，这个指标明显会上涨。  

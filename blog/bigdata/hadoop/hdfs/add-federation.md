@@ -17,11 +17,5 @@ function toggleBlogNav() {
 
 # hdfs ambari扩容6个联邦集群
 
-  - 支持列表
-  - 支持标题
-  - 支持代码块
-
-  ```python
-  print('Hello hdfs ec!')
-  ```
+  ### 待完善文档 
 

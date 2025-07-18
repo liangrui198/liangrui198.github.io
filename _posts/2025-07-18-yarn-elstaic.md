@@ -6,15 +6,21 @@ author: liangrui
 
 
 
-# Yarn超卖内存实现 
-## 成果
+# Yarn超卖内存实现
+
+<div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
+  <strong>大纲：</strong>
+  <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
+</div>
+
+## 实现Yarn内存超卖配置后的成果
   提升集群内存利用率15%,超卖内存20TB+的实践
 ### 启用cgroup来监控内存后，对比nodemanger服务器，nm JVM堆内存效率提升，GC时长和GC次数明显降低
 ![alt text](/image/yarn-elastic/10.png)
 
-### 观察到nm升级为cgroups管理内存后，整个堆内存应用降低很多，可以把nm内存降低2G，（8-2=6G）,并把这2G给到yarn分配使用，继续调大超埋内存+5G。例：ys13_7调整后的效果
+### 观察到nm升级为cgroups管理内存后，整个堆内存应用降低很多，可以把nm内存降低2G，（8-2=6G）,并把这2G给到yarn分配使用。 例：ys13_7调整后的效果
 ![alt text](/image/yarn-elastic/11.png)
-### 原101G+10+5=116G，超埋15G  |  cgroups限制内存为：原101+2=103G
+### 原101G+15=116G，超卖15G  |  cgroups限制内存为：103G
 ![alt text](/image/yarn-elastic/12.png)
 
 ### yarn可分配总内存提升20TB左右，当前对比90天历史数据
@@ -25,7 +31,7 @@ author: liangrui
 ![alt text](/image/yarn-elastic/15.png)
 
 
-## 问题描述
+## Yarn默认内存管理存在的问题
 
 当前观察nodeManger物理机实际内存利用率，还存在一定的浪费（spark 在分配置内存的时候，实际jvm存在没有用满的情况），存在一定的内存碎片。
 监控观查（可以在几秒内内存是可以用到100%利用率的）大约平均在60%-80%使用率。
@@ -268,7 +274,9 @@ spark.task.oomKill.maxFailures=默认源码里指定到10次,可根据情况调�
 
 <script>
 // 支持点击二级标题时，收起其下所有内容（包括三级及更深标题和内容）
+// 并自动生成大纲目录
 document.addEventListener('DOMContentLoaded', function() {
+  // 折叠功能
   function getFoldContent(header) {
     let content = [];
     let el = header.nextElementSibling;
@@ -290,6 +298,19 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+  // 大纲功能
+  var outline = document.getElementById('outline-list');
+  if (outline) {
+    document.querySelectorAll('h2').forEach(function(h, i) {
+      if (!h.id) h.id = 'outline-h2-' + i;
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/^#+/, '').trim();
+      li.appendChild(a);
+      outline.appendChild(li);
+    });
+  }
 });
 </script>
 

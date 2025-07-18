@@ -17,8 +17,6 @@ function toggleBlogNav() {
 
 # jdk8存在codeCache bug，这里介绍调试优化过程，和优化后的指标提升
 
-  - 支持列表
-  - 支持标题
-  - 支持代码块
+### 待完善文档 
 
 

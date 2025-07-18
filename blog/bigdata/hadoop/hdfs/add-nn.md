@@ -15,13 +15,9 @@ function toggleBlogNav() {
     {% include blog_navigation.html items=site.data.blog_navigation %}
   </nav>
 
-# hdfs EC实现和应用
+# hdfs 扩展第三台nn
+### 问题描述
+  ambari默认只支持2台主备namenode,基于ambari插件方式完成第三台nn扩展
 
-  - 支持列表
-  - 支持标题
-  - 支持代码块
-
-  ```python
-  print('Hello hdfs ec!')
-  ```
+### 待完善文档 
 

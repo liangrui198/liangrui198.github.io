@@ -6,7 +6,7 @@
         - title: HDFS
           children:
             - title: EC实现
-              url: /blog/bigdata/hadoop/hdfs/erasure-coding.html
+              url: /_posts/2025-07-18-hdfs-ec.md
             - title: 扩展三台nn备节点
               url: /blog/bigdata/hadoop/hdfs/add-nn.html
             - title: 扩容多个联邦

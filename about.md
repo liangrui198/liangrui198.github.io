@@ -11,11 +11,11 @@ title: About
 
 欢迎同行交流、留言，共同进步！
 
-# Jekyll
-jekyll 文档：https://jekyllrb.com/tutorials/using-jekyll-with-bundler/
-
 写作的目的是沉淀知识，同时希望能帮助到同样热爱技术的你。如果文章中有任何错误或建议，欢迎通过 [社交媒体/邮箱] 联系我！
 
 保持好奇，持续学习。🚀
 
 （博客源码已开源在 [https://github.com/liangrui198/liangrui198.github.io]，欢迎 Star & Fork ✨）
+
+# Jekyll
+jekyll 文档：https://jekyllrb.com/tutorials/using-jekyll-with-bundler/

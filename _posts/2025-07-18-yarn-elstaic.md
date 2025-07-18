@@ -227,11 +227,15 @@ Driver stacktrace:
 
 
 
-![](https://rte.weiyun.baidu.com/wiki/attach/image/api/imageDownloadAddress?attachId=7329840be81f450caf1185973d68f666&docGuid=m534AiztULZZIu "")
-##### 导致异常解决方案：
-1：如果这种异常大面积出现，就需要调小cgroup限制内存和yarn预分配的内存差距(yarn.nodemanager.elastic-memory-control.ratio)，让预分配内存和实际内存更相近，让内存不能超卖太多。
 
-2：调大异常重试比例，但其它异常后也会进行重试+N次
+##### Flink引擎逻辑
+https://nightlies.apache.org/flink/flink-docs-release-1.6/ops/deployment/yarn_setup.html
+```
+yarn.maximum-failed-containers = 默认=-n  -n就是TaskManager 容器
+例：./bin/yarn-session.sh -n 5  # 请求 5 个 TaskManager 容器 此时，yarn.maximum-failed-containers 的默认值即为 5。若失败容器数超过此值，YARN 会话将终止。
+```
+
+##### 导致异常解决方案：
 
 ```
 #MR
@@ -240,21 +244,7 @@ mapreduce.reduce.failures.maxpercent=0
 #spark
 spark.task.maxFailures=4
 ```
-3：在引擎和海猫调度端，检查异常为：Container exited with a non-zero exit code 137.     Killed by external signal，如果出现，就等2分钟自动发起重试。
 
-4：启用yarn机会型作业，根据业务等级把不重要的队列设置为机会型作业（机会型：会预先分配并初始化作业加载，只是等内存运行，一但其它container释放内存后，立刻计算，但在内存不足的时候，会优先kill掉这个类型的作业）在一定程度上减少对正常作业出错的概率，并会加快作业运行完，还有个好处是：
-
-例：把dap设为机会类型作业，在资源满的时候，会被正常作业kill掉，这样不用提心dap提交大任务，一直跑到晚上，占用晚上高峰期资源性况出现。
- Task 0 in stage 0.0 failed 4 times, most recent failure: ，这里的failed 4是指index 1重试了4次，其它index也有失败但还没到4次，只有其中一个到4次上限就会全部异常
-
-![alt text](/image/yarn-elastic/07.png)
-
-##### Flink引擎逻辑
-https://nightlies.apache.org/flink/flink-docs-release-1.6/ops/deployment/yarn_setup.html
-```
-yarn.maximum-failed-containers = 默认=-n  -n就是TaskManager 容器
-例：./bin/yarn-session.sh -n 5  # 请求 5 个 TaskManager 容器 此时，yarn.maximum-failed-containers 的默认值即为 5。若失败容器数超过此值，YARN 会话将终止。
-```
 
 #### 导致异常解决方案
 1：如果这种异常大面积出现，就需要调小cgroup限制内存和yarn预分配的内存差距(yarn.nodemanager.elastic-memory-control.ratio)，让预分配内存和实际内存更相近，让内存不能超卖太多。
@@ -265,12 +255,26 @@ yarn.maximum-failed-containers = 默认=-n  -n就是TaskManager 容器
 也就是这个作业的task被kill到N次后，就强制后面所有的container请求自动升级为GUARANTEED，这样yarn就不会优先Kill这个作业，而是找超出内存的或时间后面起的container进行kill.避免作业异常。
 以下是改动了saprk 源码实现，在被kill掉N次后，主动升级为GUARANTEED类型。
 ```
-spark.task.oomKill.maxFailures=默认源码里指定到10次,可根据情况调大,之所有可以调到超4次，是因为把code 137剔除了 spark.task.maxFailures的计数
+spark.task.oomKill.maxFailures=默认源码里指定到30次,可根据情况调大,之所有可以调到超4次，是因为把code 137剔除了 spark.task.maxFailures的计数
 ```
+具体代码改动参考：https://issues.apache.org/jira/secure/attachment/13076601/spark-support-yarn-OPPORTUNISTIC.patch
 ![alt text](/image/yarn-elastic/08.png)
 可以看到后面的类型已全为保证类型，不会优先被kill了。
 ![alt text](/image/yarn-elastic/09.png)
-4:增加cgroups ook-kill次数监控告警，相关作业异常告警
+
+4：启用yarn机会型作业，根据业务等级把不重要的队列设置为机会型作业（机会型：会预先分配并初始化作业加载，只是等内存运行，一但其它container释放内存后，立刻计算，但在内存不足的时候，会优先kill掉这个类型的作业）在一定程度上减少对正常作业出错的概率，并会加快作业运行完，还有个好处是：
+
+例：把dap设为机会类型作业，在资源满的时候，会被正常作业kill掉，这样不用提心dap提交大任务，一直跑到晚上，占用晚上高峰期资源性况出现。
+ Task 0 in stage 0.0 failed 4 times, most recent failure: ，这里的failed 4是指index 1重试了4次，其它index也有失败但还没到4次，只有其中一个到4次上限就会全部异常
+
+![alt text](/image/yarn-elastic/07.png)
+5：YARN层面优化 
+ 在触发cgroup oom-kill的时候，修改源码，判断container是否是master,非master的container才会被oom-kill,不然会导致作业失败
+
+5:告警机制
+  - 增加cgroups ook-kill次数监控指标，在hadoop源码里增加，目前hadoop源码没有实现这个指标监控。可以及时发现超卖异常问题。
+  - 相关异常exit code作业异常告警,主要是13,137，内存问题导致加载类失败等异常
+
 
 <script>
 // 支持点击二级标题时，收起其下所有内容（包括三级及更深标题和内容）

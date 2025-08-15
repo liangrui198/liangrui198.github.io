@@ -17,7 +17,6 @@
               url: /2025/07/18/yarn-elstaic.html
             - title: jdk-codeCache-bug修复
               url: /blog/bigdata/hadoop/yarn/yarn-jdk-codeCache.html
-
         - title: MapReduce
           url: /blog/bigdata/hadoop/mapreduce/
     - title: Spark

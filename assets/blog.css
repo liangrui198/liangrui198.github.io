@@ -174,3 +174,31 @@ th {
 .fold-content.collapsed {
   display: none;
 }
+
+/* ...date... */
+.post-date {
+  display: inline-flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin: 16px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.calendar-icon {
+  margin-right: 8px;
+  font-size: 1.1em;
+}
+
+.date-label {
+  color: #64748b;
+  font-weight: 500;
+  margin-right: 6px;
+}
+
+.date-value {
+  color: #0f172a;
+  font-weight: 600;
+}

@@ -5,6 +5,12 @@ author: liangrui
 date: 2025-08-15
 ---
 
+<div class="post-date">
+  <span class="calendar-icon">📅</span>
+  <span class="date-label">发布：</span>
+  <time datetime="2025-08-18" class="date-value">2025-08-15</time>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>
   mermaid.initialize({ startOnLoad: true });

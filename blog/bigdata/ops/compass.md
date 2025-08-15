@@ -1,4 +1,3 @@
-
 ---
 layout: default
 title:  compass
@@ -12,9 +11,10 @@ author: liangrui
 
 
 # compass诊断平台模块分析
-应用文档可以直接查看：https://github.com/cubefs/compass 
+应用文档可以直接查看：https://github.com/cubefs/compass   
 因:调度系统是自研的，mysql平台不支持canal采集,这里对源码做了分析，进行了数据对接和转换
 
+```mermaid
 flowchart TD
   A[canal<br>同步调度数据表到compass表] --> B[task syncer<br>消费mysqldata转存为compass表<br>写kafka: task-instance]
   B --> C[task application<br>消费task-instance<br>日志提取app_id<br>写mysql: task_application<br>发kafka: task-application]
@@ -32,6 +32,7 @@ flowchart TD
     H --> I
     I --> J
   end
+```
 
 ## canal作用
 通过kafka 主题为:mysqldata, 进行同步调度数据表到compass表  
@@ -54,14 +55,14 @@ adapter主要是适配不同调度表数据，主要配置srcDataSources:源调�
 
 
 ## task-detect
-模块进行工作流层异常任务检测，例如运行失败、基线耗时异常等
-DetectedTask通过消费kafka主题：task-instance进行处理逻辑,取到的是task实例信息，
-再通过projectName,flowName,taskName,executionTime去mysql表：task_application查询出app信息，
+模块进行工作流层异常任务检测，例如运行失败、基线耗时异常等  
+DetectedTask通过消费kafka主题：task-instance进行处理逻辑,取到的是task实例信息，  
+再通过projectName,flowName,taskName,executionTime去mysql表：task_application查询出app信息，  
 然后把诊断结果写入  
-ES -> (compass-job-instance) 
-延迟的实例处理（缺少appid） 
-Redis -> ({lua}:delayed:task)  
-DelayedTask延迟任务处理，通过spingBoot->CommandLineRunner实现启动时运行
+ES -> (compass-job-instance)   
+延迟的实例处理（缺少appid）   
+Redis -> ({lua}:delayed:task)    
+DelayedTask延迟任务处理，通过spingBoot->CommandLineRunner实现启动时运行  
 
 
 ## task parser
@@ -70,10 +71,10 @@ DelayedTask延迟任务处理，通过spingBoot->CommandLineRunner实现启动�
 
 ## task portal
 前端页面展示相关接口模块
-报告总览      ReportController -> /api/v1/report
+报告总览      ReportController -> /api/v1/report  
 调度列表入口为 AppController -> /api/v1/app/list  -> 查询ES索引compass-task-app*   
-离线列表入口为 JobController -> /api/v1/job/list  -> 查询ES索上compass-job-analysis*
-离线诊断入口  /openapi/offline/app/metadata -> redis:{lua}:log:record ->| task-parser -> RedisConsumer数据消费redis:{lua}:log:record 
+离线列表入口为 JobController -> /api/v1/job/list  -> 查询ES索上compass-job-analysis*  
+离线诊断入口  /openapi/offline/app/metadata -> redis:{lua}:log:record ->| task-parser -> RedisConsumer数据消费  redis:{lua}:log:record 
 
 
 
@@ -100,14 +101,16 @@ task_instance 表（任务实例表）
 诊断系统（task-detect）会消费kafka消息，来进行自动诊断，把结果存入ES进行展示，这里就直接跳过了task-canal和task-applicaion项目处理的逻辑。
  
 
+```mermaid
 graph TD
-    A[源MySQL数据库] -->|1. 读取数据| B[Spark Session]
-    C[Kyuubi MySQL] -->|2. 读取应用ID| B
-    B -->|3. 数据转换| D[临时DataFrame]
-    D -->|4.1 写入目标MySQL| E[目标MySQL task_instance表]
-    D -->|4.2 写入目标MySQL| F[目标MySQL task_application表]
-    D -->|5. 过滤有app_id的数据| G[Kafka生产数据]
-    G -->|6. 发送消息| H[Kafka主题 task-instance]
+  A[源MySQL数据库] -->|1. 读取数据| B[Spark Session]
+  C[Kyuubi MySQL] -->|2. 读取应用ID| B
+  B -->|3. 数据转换| D[临时DataFrame]
+  D -->|4.1 写入目标MySQL| E[目标MySQL task_instance表]
+  D -->|4.2 写入目标MySQL| F[目标MySQL task_application表]
+  D -->|5. 过滤有app_id的数据| G[Kafka生产数据]
+  G -->|6. 发送消息| H[Kafka主题 task-instance]
+```    
 
 流程步骤说明
 数据源读取

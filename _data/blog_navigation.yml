@@ -28,6 +28,8 @@
       children:
             - title: cortex统一监控存储
               url: /blog/bigdata/ops/cortex.html
+            - title: compass诊断平台
+              url: /blog/bigdata/ops/compass.html              
     - title: 告警服务
       children:
             - title: 统一告警

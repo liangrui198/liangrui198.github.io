@@ -4,7 +4,11 @@ title:  YARN超卖内存实现
 author: liangrui
 ---
 
-
+<div class="post-date">
+  <span class="calendar-icon">📅</span>
+  <span class="date-label">发布：</span>
+  <time datetime="2025-08-18" class="date-value">2025-07-15</time>
+</div>
 
 # Yarn超卖内存实现
 

@@ -4,6 +4,11 @@ title:  compass
 author: liangrui
 ---
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true });
+</script>
+
 <div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
   <strong>大纲：</strong>
   <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>

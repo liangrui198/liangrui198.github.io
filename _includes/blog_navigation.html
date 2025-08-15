@@ -27,76 +27,79 @@
   {% endfor %}
 </ul>
 <script>
-// 菜单折叠状态存储 key
-const BLOG_NAV_STATE_KEY = 'blogNavMenuState';
+(function() {
+  // 菜单折叠状态存储 key
+  const BLOG_NAV_STATE_KEY = 'blogNavMenuState';
 
-function getMenuState() {
-  try {
-    return JSON.parse(localStorage.getItem(BLOG_NAV_STATE_KEY) || '{}');
-  } catch (e) {
-    return {};
+  function getMenuState() {
+    try {
+      return JSON.parse(localStorage.getItem(BLOG_NAV_STATE_KEY) || '{}');
+    } catch (e) {
+      return {};
+    }
   }
-}
-function setMenuState(state) {
-  localStorage.setItem(BLOG_NAV_STATE_KEY, JSON.stringify(state));
-}
+  function setMenuState(state) {
+    localStorage.setItem(BLOG_NAV_STATE_KEY, JSON.stringify(state));
+  }
 
-function getItemId(li) {
-  // 用链接的 href 作为唯一 id
-  var a = li.querySelector('.blog-nav-link');
-  return a ? a.getAttribute('href') : null;
-}
+  function getItemId(li) {
+    // 用链接的 href 作为唯一 id
+    var a = li.querySelector('.blog-nav-link');
+    return a ? a.getAttribute('href') : null;
+  }
 
-function toggleSubMenu(btn) {
-  var submenu = btn.parentNode.querySelector('.submenu');
-  var li = btn.parentNode;
-  if (submenu && li) {
-    submenu.classList.toggle('collapsed');
-    btn.classList.toggle('open');
-    // 保存状态
-    var id = getItemId(li);
+  function toggleSubMenu(btn) {
+    var submenu = btn.parentNode.querySelector('.submenu');
+    var li = btn.parentNode;
+    if (submenu && li) {
+      submenu.classList.toggle('collapsed');
+      btn.classList.toggle('open');
+      // 保存状态
+      var id = getItemId(li);
+      var state = getMenuState();
+      state[id] = !submenu.classList.contains('collapsed');
+      setMenuState(state);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // 恢复菜单展开状态
     var state = getMenuState();
-    state[id] = !submenu.classList.contains('collapsed');
-    setMenuState(state);
-  }
-}
+    document.querySelectorAll('.blog-nav-item').forEach(function(li) {
+      var id = getItemId(li);
+      var submenu = li.querySelector('.submenu');
+      var btn = li.querySelector('.toggle-btn');
+      if (submenu && btn && id) {
+        if (state[id]) {
+          submenu.classList.remove('collapsed');
+          btn.classList.add('open');
+        } else {
+          submenu.classList.add('collapsed');
+          btn.classList.remove('open');
+        }
+      }
+    });
 
-document.addEventListener('DOMContentLoaded', function() {
-  // 恢复菜单展开状态
-  var state = getMenuState();
-  document.querySelectorAll('.blog-nav-item').forEach(function(li) {
-    var id = getItemId(li);
-    var submenu = li.querySelector('.submenu');
-    var btn = li.querySelector('.toggle-btn');
-    if (submenu && btn && id) {
-      if (state[id]) {
-        submenu.classList.remove('collapsed');
-        btn.classList.add('open');
-      } else {
-        submenu.classList.add('collapsed');
-        btn.classList.remove('open');
+    // 默认展开当前激活项（如果没有被手动操作过）
+    var active = document.querySelector('.blog-nav-item.active > .blog-nav-link');
+    if(active) {
+      var parent = active.parentNode;
+      while(parent && parent.classList) {
+        var submenu = parent.querySelector('.submenu');
+        var btn = parent.querySelector('.toggle-btn');
+        var id = getItemId(parent);
+        if(submenu && btn && id && state[id] === undefined) {
+          submenu.classList.remove('collapsed');
+          btn.classList.add('open');
+        }
+        parent = parent.parentNode.closest('.blog-nav-item');
       }
     }
   });
 
-  // 默认展开当前激活项（如果没有被手动操作过）
-  var active = document.querySelector('.blog-nav-item.active > .blog-nav-link');
-  if(active) {
-    var parent = active.parentNode;
-    while(parent && parent.classList) {
-      var submenu = parent.querySelector('.submenu');
-      var btn = parent.querySelector('.toggle-btn');
-      var id = getItemId(parent);
-      if(submenu && btn && id && state[id] === undefined) {
-        submenu.classList.remove('collapsed');
-        btn.classList.add('open');
-      }
-      parent = parent.parentNode.closest('.blog-nav-item');
-    }
-  }
-});
-
-
+  // 挂载到 window 以便 HTML onclick 能访问
+  window.toggleSubMenu = toggleSubMenu;
+})();
 </script>
 <style>
 

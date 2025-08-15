@@ -10,21 +10,6 @@ date: 2025-08-15
   mermaid.initialize({ startOnLoad: true });
 </script>
 
-<style>
-/* ...existing code... */
-.page-title {
-  margin: 0 0 0.25rem;
-  font-size: 1.6rem;
-  line-height: 1.2;
-}
-.page-meta {
-  color: #6b7280;
-  font-size: 0.95rem;
-  margin: 0 0 1rem;
-}
-
-</style>
-
 <div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
   <strong>大纲：</strong>
   <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>

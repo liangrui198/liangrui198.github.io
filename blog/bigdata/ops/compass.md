@@ -1,6 +1,8 @@
 ---
 layout: default
 title:  compass
+description: "OPPO 大数据诊断平台 罗盘" 
+keywords: compass,罗盘,OPPO 大数据诊断平台,OPPO compass
 author: liangrui
 date: 2025-08-15
 ---

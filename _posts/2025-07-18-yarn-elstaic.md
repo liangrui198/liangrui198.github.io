@@ -1,13 +1,15 @@
 ---
 layout: default
 title:  YARN超卖内存实现
+description: "Yarn内存超卖配置实践,提升集群内存利用率15%,超卖内存20TB+的最佳实践" 
+keywords: yarn,内存超卖,cgroup,资源调度,大数据
 author: liangrui
 ---
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>
   <span class="date-label">发布：</span>
-  <time datetime="2025-08-18" class="date-value">2025-07-15</time>
+  <time datetime="2025-07-18" class="date-value">2025-07-18</time>
 </div>
 
 # Yarn超卖内存实现

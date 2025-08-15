@@ -19,7 +19,8 @@ author: liangrui
 应用文档可以直接查看：https://github.com/cubefs/compass   
 因:调度系统是自研的，mysql平台不支持canal采集,这里对源码做了分析，进行了数据对接和转换
 
-```mermaid
+
+<div class="mermaid">
 flowchart TD
   A[canal<br>同步调度数据表到compass表] --> B[task syncer<br>消费mysqldata转存为compass表<br>写kafka: task-instance]
   B --> C[task application<br>消费task-instance<br>日志提取app_id<br>写mysql: task_application<br>发kafka: task-application]
@@ -37,7 +38,8 @@ flowchart TD
     H --> I
     I --> J
   end
-```
+</div>
+
 
 ## canal作用
 通过kafka 主题为:mysqldata, 进行同步调度数据表到compass表  
@@ -106,7 +108,7 @@ task_instance 表（任务实例表）
 诊断系统（task-detect）会消费kafka消息，来进行自动诊断，把结果存入ES进行展示，这里就直接跳过了task-canal和task-applicaion项目处理的逻辑。
  
 
-```mermaid
+<div class="mermaid">
 graph TD
   A[源MySQL数据库] -->|1. 读取数据| B[Spark Session]
   C[Kyuubi MySQL] -->|2. 读取应用ID| B
@@ -115,7 +117,8 @@ graph TD
   D -->|4.2 写入目标MySQL| F[目标MySQL task_application表]
   D -->|5. 过滤有app_id的数据| G[Kafka生产数据]
   G -->|6. 发送消息| H[Kafka主题 task-instance]
-```    
+</div>
+  
 
 流程步骤说明
 数据源读取
@@ -220,8 +223,8 @@ function toggleBlogNav() {
   var nav = document.querySelector('.blog-nav');
   nav.classList.toggle('collapsed');
 }
-
 </script>
+
   <nav class="blog-nav">
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
     {% include blog_navigation.html items=site.data.blog_navigation %}

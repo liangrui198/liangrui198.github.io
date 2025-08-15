@@ -16,7 +16,7 @@ author: liangrui
 
 
 # compass诊断平台模块分析
-应用文档可以直接查看：https://github.com/cubefs/compass   
+应用文档可以直接查看：<a href="https://github.com/cubefs/compass "> compassGithub</a>
 因:调度系统是自研的，mysql平台不支持canal采集,这里对源码做了分析，进行了数据对接和转换
 
 
@@ -104,7 +104,7 @@ task_instance 表（任务实例表）
 
 
 # 自定义调度系统表转换流程
-这里采用了spark每小时采集定义调度系统和kyuubi表信息，找到调度->实例->application相关信息，批量清洗完数据后，统一批次发送到kafka,  
+这里采用了spark每小时采集自定义调度系统和kyuubi表信息，找到调度->实例->application相关信息，批量清洗完数据后，统一批次发送到kafka,  
 诊断系统（task-detect）会消费kafka消息，来进行自动诊断，把结果存入ES进行展示，这里就直接跳过了task-canal和task-applicaion项目处理的逻辑。
  
 
@@ -130,8 +130,6 @@ graph TD
 
 ### Kyuubi MySQL：
 表：sqlmetadata   获取Spark任务的application_id，按时间范围过滤并去重。  
-
-
 
 ## 数据转换
 

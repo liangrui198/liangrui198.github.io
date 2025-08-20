@@ -217,12 +217,13 @@ if (cpu浪费比例45% < 阈值50%)=> 正常
 3. 其他情况 ：   
    - Driver初始化时间（加载依赖、注册应用等）
    - 作业调度延迟（特别是在动态资源分配模式下）
-   - 数据倾斜导致的某些任务长时间运行，而其他资源处于空闲状态
+   - 数据倾斜导致的某些任务长时间运行，而其他资源处于空闲状态  
 ## 我们当前的环境
 - 我们目前没有启用严格cpu分配和限制
 - 启用saprk动态分配后和计算逻辑冲突 
-- spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况  
- **综合以上考虑，这个诊断对我们目前不适用，屏蔽这个诊断逻辑。**
+- spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况   
+
+**综合以上考虑，这个诊断对我们目前不适用，屏蔽这个诊断逻辑。**
 
 
 ## Task长尾
@@ -231,8 +232,9 @@ if (cpu浪费比例45% < 阈值50%)=> 正常
  ------ | -------------------- | ------------------------- | -------------- | ---------------
  Job    | 一个 Action 算子     | 1个Application包含多个Job | Driver         | (整体)
  Stage  | 根据 宽依赖 划分      | 1个Job包含多个Stage       | DAGScheduler   | (阶段)
- Task   | 与 RDD分区 一一对应   | 1个Stage包含多个Task      | TaskScheduler  | Executor
-**Task：** 一个 Stage 会根据其分区数（Partitions）被拆分成多个 Task。Task 是 Spark 中最基本的工作单元和执行单元，每个 Task 在一个 Executor 的一个核心上处理一个分区的数据。一个 Stage 的所有 Task 执行的计算逻辑是完全一样的，只是处理的数据不同。  
+ Task   | 与 RDD分区 一一对应   | 1个Stage包含多个Task      | TaskScheduler  | Executor  
+
+- **Task：** 一个 Stage 会根据其分区数（Partitions）被拆分成多个 Task。Task 是 Spark 中最基本的工作单元和执行单元，每个 Task 在一个 Executor 的一个核心上处理一个分区的数据。一个 Stage 的所有 Task 执行的计算逻辑是完全一样的，只是处理的数据不同。  
 - stage中存在task最大运行耗时远大于中位数的任务为异常
 
 ### 计算方式
@@ -254,30 +256,27 @@ ratio = max_duration / median_duration
  **命令示例：**
  ```scala
  // 假设 'key' 列中存在一些我们不需要的异常大Key
-val filteredRDD = originalRDD.filter(row => row.getAs[String]("key") != "异常Key值")
+val filteredRDD = originalRDD.filter(row => row.getAs[String]("key") != "异常Key值")  
  ```
-##### c) 两阶段聚合（加盐/打散 -> 聚合 -> 去盐 -> 最终聚合）
-**场景：**适用于 reduceByKey, groupByKey, agg 等聚合类 Shuffle 操作。
-**步骤：**
-- 打散：给每个 Key 加上一个随机前缀（盐），将一个大 Key 拆分成多个小 Key。
-```java
+ 
+ ##### c) 两阶段聚合（加盐/打散 -> 聚合 -> 去盐 -> 最终聚合）  
+**场景：**适用于 reduceByKey, groupByKey, agg 等聚合类 Shuffle 操作。  
+**步骤：**  
+- 打散：给每个 Key 加上一个随机前缀（盐），将一个大 Key 拆分成多个小 Key。  
+
+```scala
 // 第一步：加盐局部聚合
 val saltedPairRDD = originalPairRDD.map{ case (key, value) =>
   val salt = (new util.Random).nextInt(numSalts) // numSalts 是随机范围，例如 10
   (s"$salt-$key", value)
 }
 val partialAggRDD = saltedPairRDD.reduceByKey(_ + _) // 局部聚合
-
 ```
+
 - 去盐：去掉随机前缀，恢复原始 Key。
 - 最终聚合：对恢复后的原始 Key 进行全局聚合。
 **效果：**将原本由一个 Task 处理的一个大 Key 的计算压力，分摊给了多个 Task，完美解决倾斜。
 ##### d) 使用随机Key实现扩容join
-
-
-
-
-
 
 
 

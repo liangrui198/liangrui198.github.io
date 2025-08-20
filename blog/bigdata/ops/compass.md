@@ -174,8 +174,115 @@ task_application表：
 ### 最终效果预览
 ![alt text](../../../image/ops/compass/01.png)
 
+# 诊断逻辑解析
+ 默认诊断配置:compass\task-parser\src\main\resources\application.yml  
+
+## cpu浪费计算
+### executor计算
+##### 任务实际使用的计算资源（毫秒）
+spark所有的job 执行时间相加
+inJobComputeMillisUsed= (for-> spark.job.executorRunTime++)
+
+##### 任务可用的计算资源（毫秒）
+totalCores=executorCores*maxExecutors（最大并发executor数）
+inJobComputeMillisAvailable = totalCores * jobTime;
+
+##### cpu浪费比例
+ executorWastedPercentOverAll = (inJobComputeMillisAvailable - inJobComputeMillisUsed) / inJobComputeMillisAvailable * 100%
+##### 判断是否浪费
+ 阈值:executorThreshold=50%(默认)
+if (cpu浪费比例45% < 阈值50%)=> 正常
+##### 备注
+这里如果启用了spark 动态分配设置(spark.dynamicAllocation.enabled)，计算完的executor会关闭，安这种方式计算，会把关闭后的executor也会算为在应用cpu， 这样的话计算是不合理的
+
+### driver计算
+- 主要是计算 dirver中间卡顿没有计算的比例，比如调度下一个job时没有资源可用
+- appTotalTime 表示整个Spark应用的总运行时间   
+- jobTime 表示所有Spark作业实际执行时间的总和   
+ driverComputeMillisWastedJobBased = driverTimeJobBased * totalCores  
+ driverTimeJobBased = appTotalTime - jobTime （应用总时间减去作业时间）  
+ appComputeMillisAvailable = totalCores * appTotalTime （总核心数乘以应用总时间）  
+ ### driver cpu浪费比例
+ driverWastedPercentOverAll =
+                ((float) driverComputeMillisWastedJobBased / appComputeMillisAvailable) * 100;
+在Spark应用中， appTotalTime 和 jobTime 差距较大的情况主要有以下几种：
+
+### appTotalTime和jobTime的差距区别 说明
+1. 资源等待 ：     
+   - 启动Driver后YARN没有可用资源时
+   - 作业执行过程中资源被抢占或释放后重新申请
+2. 作业间隔期 ：   
+   - 当一个作业完成到下一个作业开始提交之间的间隔时间
+   - 这个间隔期会计入 appTotalTime 但不会计入 jobTime
+3. 其他情况 ：   
+   - Driver初始化时间（加载依赖、注册应用等）
+   - 作业调度延迟（特别是在动态资源分配模式下）
+   - 数据倾斜导致的某些任务长时间运行，而其他资源处于空闲状态
+## 我们当前的环境
+- 我们目前没有启用严格cpu分配和限制
+- 启用saprk动态分配后和计算逻辑冲突 
+- spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况  
+ **综合以上考虑，这个诊断对我们目前不适用，屏蔽这个诊断逻辑。**
+
+
+## Task长尾
+### 诊断描述
+ 概念   | 产生方式             | 数量                      | 规划者         | 执行者
+ ------ | -------------------- | ------------------------- | -------------- | ---------------
+ Job    | 一个 Action 算子     | 1个Application包含多个Job | Driver         | (整体)
+ Stage  | 根据 宽依赖 划分      | 1个Job包含多个Stage       | DAGScheduler   | (阶段)
+ Task   | 与 RDD分区 一一对应   | 1个Stage包含多个Task      | TaskScheduler  | Executor
+**Task：** 一个 Stage 会根据其分区数（Partitions）被拆分成多个 Task。Task 是 Spark 中最基本的工作单元和执行单元，每个 Task 在一个 Executor 的一个核心上处理一个分区的数据。一个 Stage 的所有 Task 执行的计算逻辑是完全一样的，只是处理的数据不同。  
+- stage中存在task最大运行耗时远大于中位数的任务为异常
+
+### 计算方式
+```java
+// 计算每个task的最大执行时间与中位数的比值
+ratio = max_duration / median_duration
+// taskDurationConfig.threshold default:10
+当 ratio > threshold 时（threshold来自配置），判定为长尾异常
+```
+### 建议优化
+#### 首先确认是数据倾斜还是计算倾斜
+- 如果某个 Task 的 Shuffle Read 数据量远大于其他 Task，基本可以断定是数据倾斜。如果处理的数据量差不多，但执行时间差别大，可能是计算倾斜（例如某个分区的数据导致了更复杂的计算逻辑，如深层循环）。
+#### 优化方向一：应对数据倾斜 (Data Skewness)
+- 会有数据倾斜相关诊断说明
+#### 优化方向二：调整分区与并行度
+- a) 提高Shuffle并行度
+  **方案：**通过设置 spark.sql.shuffle.partitions（默认200）来增加 Shuffle 后的分区数。  
+  **原理：**让数据被分配到更多个 Task 中去处理，即使有数据倾斜，更大的分区数也可能让倾斜程度相对降低。这是一个简单但可能有效的“缓兵之计”。   
+```scala
+  spark.conf.set("spark.sql.shuffle.partitions", "1000") // 根据数据量调整
+   // 或者在 reduceByKey 等操作中直接指定分区数
+  rdd.reduceByKey(_ + _, 1000)
+```
+- b) 使用自定义Partitioner
+**方案：**如果业务逻辑清晰，可以自定义分区规则，避免某些分区落入过多数据。
+**场景：**例如，你明确知道某些 Key 是热点，可以编写自己的 Partitioner 类，将这些 Key 强制分配到多个特定的分区中去。
+
+
+#### 优化方向三：检查计算逻辑与资源
+- 如果不是数据问题，而是计算问题：
+  - **检查UDF（用户自定义函数）**:你的 UDF 中是否存在低效操作（如频繁创建对象、递归过深）？是否在某些特定数据上会触发低效路径？优化你的代码逻辑。
+  - **检查资源竞争**:
+    - **GC（垃圾回收）**:长尾 Task 可能因为处理的数据量大，触发了频繁的 Full GC。在 Spark UI 中检查该 Task 的 GC 时间。考虑使用 G1GC 并调整堆内存和 GC 参数。
+    - **Executor 负载不均**:可能某个 Executor 所在的物理机负载本身就很高（CPU、磁盘IO、网络IO被其他进程占用），导致上面的所有 Task 都变慢。需要从集群监控层面排查。
+
+### 优化总结与流程
+- 定位：使用 Spark UI 确定是数据倾斜还是计算倾斜。
+- 首选：如果能过滤掉倾斜Key，这是最直接的方法。
+- 核心手段：对于聚合操作，优先考虑两阶段聚合（加盐）；对于 Join 操作，优先看能否使用 Spark 3.2+ 的 SKEW JOIN Hint。
+- 通用技巧：尝试增加 Shuffle 分区数 (spark.sql.shuffle.partitions)。
+- 深度优化：考虑自定义分区器或优化UDF 代码和 JVM 参数。
+- 长尾问题的优化通常是上述多种方法结合使用、反复迭代的过程。核心思想永远是：将集中在一处的计算和存储压力，尽可能地分散到多个并行单元中去。
+
+
+## 待补充更多的诊断逻辑分析
+
+
 # 后续优化
   默认诊断不符合当前效果，后续需要结合实际场景，给出优化建议
+
 
 <script>
 // 支持点击二级标题时，收起其下所有内容（包括三级及更深标题和内容）

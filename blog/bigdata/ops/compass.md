@@ -246,7 +246,43 @@ ratio = max_duration / median_duration
 #### 首先确认是数据倾斜还是计算倾斜
 - 如果某个 Task 的 Shuffle Read 数据量远大于其他 Task，基本可以断定是数据倾斜。如果处理的数据量差不多，但执行时间差别大，可能是计算倾斜（例如某个分区的数据导致了更复杂的计算逻辑，如深层循环）。
 #### 优化方向一：应对数据倾斜 (Data Skewness)
-- 会有数据倾斜相关诊断说明
+ **这是最常见的原因，即某些 Key 对应的数据量远大于其他 Key。**
+ **a) 预处理数据源**
+ - **理想方案**：如果可能，直接从数据源端进行预处理，将热点数据打散。例如在 Hive ETL 阶段就对频繁使用的 Key 进行加盐或打散。
+ **b) 过滤倾斜的Key**  
+ **方案**：如果某些热点 Key 不是业务分析所必需的（例如爬虫抓取的异常 NULL 值、测试账号的数据），可以直接在作业中过滤掉它们。
+ **命令示例：**
+ ```scala
+ // 假设 'key' 列中存在一些我们不需要的异常大Key
+val filteredRDD = originalRDD.filter(row => row.getAs[String]("key") != "异常Key值")
+ ```
+##### c) 两阶段聚合（加盐/打散 -> 聚合 -> 去盐 -> 最终聚合）
+**场景：**适用于 reduceByKey, groupByKey, agg 等聚合类 Shuffle 操作。
+**步骤：**
+- 打散：给每个 Key 加上一个随机前缀（盐），将一个大 Key 拆分成多个小 Key。
+```java
+// 第一步：加盐局部聚合
+val saltedPairRDD = originalPairRDD.map{ case (key, value) =>
+  val salt = (new util.Random).nextInt(numSalts) // numSalts 是随机范围，例如 10
+  (s"$salt-$key", value)
+}
+val partialAggRDD = saltedPairRDD.reduceByKey(_ + _) // 局部聚合
+
+```
+- 去盐：去掉随机前缀，恢复原始 Key。
+- 最终聚合：对恢复后的原始 Key 进行全局聚合。
+**效果：**将原本由一个 Task 处理的一个大 Key 的计算压力，分摊给了多个 Task，完美解决倾斜。
+##### d) 使用随机Key实现扩容join
+
+
+
+
+
+
+
+
+
+
 #### 优化方向二：调整分区与并行度
 - a) 提高Shuffle并行度
   **方案：**通过设置 spark.sql.shuffle.partitions（默认200）来增加 Shuffle 后的分区数。  

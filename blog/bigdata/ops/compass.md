@@ -177,6 +177,79 @@ task_application表：
 # 诊断逻辑解析
  默认诊断配置:compass\task-parser\src\main\resources\application.yml  
 
+图解流程(spark中的job->stage->task的流程)
+假设我们有如下代码：  
+
+```scala
+val textFile = sc.textFile("hdfs://...")          // RDD A
+val words = textFile.flatMap(line => line.split(" ")) // RDD B
+val mappedWords = words.map(word => (word, 1))       // RDD C
+val wordCounts = mappedWords.reduceByKey(_ + _)     // RDD D
+wordCounts.saveAsTextFile("hdfs://...output")      // Action!
+```
+其执行流程的 DAG 和 Stage 划分如下图所示  
+
+<div class="mermaid">
+flowchart TD
+    subgraph Application [Application - 应用程序]
+        direction TB
+        A[textFile RDD A] --> B[flatMap RDD B]
+        B --> C[map RDD C]
+        C -- Wide Dependency<br>Shuffle! --> D[reduceByKey RDD D]
+        D --> Action[saveAsTextFile Action]
+    end
+
+    Application --> Job
+
+    subgraph Job [Job - 作业]
+        direction TB
+        S1[Stage 1<br>ShuffleMapStage] -- Shuffle Data --> S2[Stage 2<br>ResultStage]
+    end
+
+    Job --> Stage
+
+    subgraph Stage1 [Stage 1 内部]
+        direction LR
+        T1_1[Task 1]
+        T1_2[Task 2]
+        T1_3[...]
+        T1_4[Task N]
+    end
+
+    subgraph Stage2 [Stage 2 内部]
+        direction LR
+        T2_1[Task 1]
+        T2_2[Task 2]
+        T2_3[...]
+        T2_4[Task M]
+    end
+
+    Stage --> Task
+
+    T1_1 --> E1[Executor Core]
+    T1_2 --> E2[Executor Core]
+    T1_4 --> E3[Executor Core]
+</div>
+
+**流程解释 (对应上图数字)：**
+- 执行 saveAsTextFile (Action)，触发一个 Job。  
+- DAGScheduler 从 RDD D 反向回溯，发现 reduceByKey 是一个宽依赖。  
+- 在宽依赖处划开，reduceByKey 之后的操作（本例中没有）属于 Stage 2 (Result Stage)，之前的所有操作 (textFile, flatMap, map) 属于 Stage 1 (Shuffle Map Stage)。
+- Stage 1 启动。假设源文件被划分为 N 个分区，则 Stage 1 会创建 N 个 ShuffleMapTask。这些 Task 被分配到各个 Executor 上，读取 HDFS 数据块，执行 flatMap 和 map 操作，然后为 reduceByKey 做准备（对- 数据进行分区和本地聚合），最后将结果写入本地磁盘（Shuffle 文件）。
+- Stage 1 全部执行完毕后，Stage 2 启动。reduceByKey 默认的分区器（通常是 HashPartitioner）会产生 M 个分区（默认和父 RDD 分区数一致），所以 Stage 2 会创建 M 个 ResultTask。
+- 这些 ResultTask 会去拉取 (Fetch) Stage 1 中输出的、属于自己分区的 Shuffle 数据，然后在 Executor 上执行最终的聚合（_ + _）操作，最后将结果保存到 HDFS。
+
+**总结**
+
+ 概念   | 产生方式             | 数量                      | 规划者         | 执行者
+ ------ | -------------------- | ------------------------- | -------------- | ---------------
+ Job    | 一个 Action 算子     | 1个Application包含多个Job | Driver         | (整体)
+ Stage  | 根据 宽依赖 划分      | 1个Job包含多个Stage       | DAGScheduler   | (阶段)
+ Task   | 与 RDD分区 一一对应   | 1个Stage包含多个Task      | TaskScheduler  | Executor  
+
+- **Task：** 一个 Stage 会根据其分区数（Partitions）被拆分成多个 Task。Task 是 Spark 中最基本的工作单元和执行单元，每个 Task 在一个 Executor 的一个核心上处理一个分区的数据。一个 Stage 的所有 Task 执行的计算逻辑是完全一样的，只是处理的数据不同。  
+- stage中存在task最大运行耗时远大于中位数的任务为异常
+
 ## cpu浪费计算
 ### executor计算
 ##### 任务实际使用的计算资源（毫秒）
@@ -224,20 +297,14 @@ if (cpu浪费比例45% < 阈值50%)=> 正常
 - 启用saprk动态分配后和计算逻辑冲突 
 - spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况 
 
-**综合以上考虑，这个诊断对我们目前不适用，屏蔽这个诊断逻辑。**
- executorThreshold=95  
+**综合以上考虑，这个诊断对我们目前不适用，屏蔽这个诊断逻辑。**  
+- executorThreshold: 95   
+- driverThreshold: 95  
 
 
 ## Task长尾
 ### 诊断描述
- 概念   | 产生方式             | 数量                      | 规划者         | 执行者
- ------ | -------------------- | ------------------------- | -------------- | ---------------
- Job    | 一个 Action 算子     | 1个Application包含多个Job | Driver         | (整体)
- Stage  | 根据 宽依赖 划分      | 1个Job包含多个Stage       | DAGScheduler   | (阶段)
- Task   | 与 RDD分区 一一对应   | 1个Stage包含多个Task      | TaskScheduler  | Executor  
-
-- **Task：** 一个 Stage 会根据其分区数（Partitions）被拆分成多个 Task。Task 是 Spark 中最基本的工作单元和执行单元，每个 Task 在一个 Executor 的一个核心上处理一个分区的数据。一个 Stage 的所有 Task 执行的计算逻辑是完全一样的，只是处理的数据不同。  
-- stage中存在task最大运行耗时远大于中位数的任务为异常
+map/reduce task最大运行耗时远大于中位数的任务  
 
 ### 计算方式
 ```java

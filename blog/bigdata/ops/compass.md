@@ -175,12 +175,14 @@ task_application表：
 ![alt text](../../../image/ops/compass/01.png)
 
 # 诊断逻辑解析
+
  默认诊断配置:compass\task-parser\src\main\resources\application.yml  
 
 图解流程(spark中的job->stage->task的流程)
 假设我们有如下代码：  
 
 ```scala
+//RDD is resilient distributed dataset
 val textFile = sc.textFile("hdfs://...")          // RDD A
 val words = textFile.flatMap(line => line.split(" ")) // RDD B
 val mappedWords = words.map(word => (word, 1))       // RDD C
@@ -252,21 +254,18 @@ flowchart TD
 
 ## cpu浪费计算
 ### executor计算
-##### 任务实际使用的计算资源（毫秒）
-spark所有的job 执行时间相加
-inJobComputeMillisUsed= (for-> spark.job.executorRunTime++)
+- 任务实际使用的计算资源（毫秒）
+  spark所有的job 执行时间相加:  inJobComputeMillisUsed= (for-> spark.job.executorRunTime++)
 
-##### 任务可用的计算资源（毫秒）
-totalCores=executorCores*maxExecutors（最大并发executor数）
-inJobComputeMillisAvailable = totalCores * jobTime;
+- 任务可用的计算资源（毫秒）
+  totalCores=executorCores*maxExecutors（最大并发executor数）
+  inJobComputeMillisAvailable = totalCores * jobTime;
 
-##### cpu浪费比例
- executorWastedPercentOverAll = (inJobComputeMillisAvailable - inJobComputeMillisUsed) / inJobComputeMillisAvailable * 100%
-##### 判断是否浪费
- 阈值:executorThreshold=50%(默认)
-if (cpu浪费比例45% < 阈值50%)=> 正常
-##### 备注
-这里如果启用了spark 动态分配设置(spark.dynamicAllocation.enabled)，计算完的executor会关闭，安这种方式计算，会把关闭后的executor也会算为在应用cpu， 这样的话计算是不合理的
+- cpu浪费比例  
+  executorWastedPercentOverAll = (inJobComputeMillisAvailable - inJobComputeMillisUsed) / inJobComputeMillisAvailable * 100%
+- 判断是否浪费
+  if (cpu浪费比例45% < 阈值50%)=> 正常
+**备注:**这里如果启用了spark 动态分配设置(spark.dynamicAllocation.enabled)，计算完的executor会关闭，安这种方式计算，会把关闭后的executor也会算为在应用cpu， 这样的话计算是不合理的
 
 ### driver计算
 - 主要是计算 dirver中间卡顿没有计算的比例，比如调度下一个job时没有资源可用
@@ -275,7 +274,7 @@ if (cpu浪费比例45% < 阈值50%)=> 正常
  driverComputeMillisWastedJobBased = driverTimeJobBased * totalCores  
  driverTimeJobBased = appTotalTime - jobTime （应用总时间减去作业时间）  
  appComputeMillisAvailable = totalCores * appTotalTime （总核心数乘以应用总时间）  
- ### driver cpu浪费比例
+ #### driver cpu浪费比例
  driverWastedPercentOverAll =
                 ((float) driverComputeMillisWastedJobBased / appComputeMillisAvailable) * 100;
 在Spark应用中， appTotalTime 和 jobTime 差距较大的情况主要有以下几种：
@@ -292,12 +291,12 @@ if (cpu浪费比例45% < 阈值50%)=> 正常
    - 作业调度延迟（特别是在动态资源分配模式下）
    - 数据倾斜导致的某些任务长时间运行，而其他资源处于空闲状态  
    
-## 我们当前的环境
+#### 我们当前的环境
 - 我们目前没有启用严格cpu分配和限制
 - 启用saprk动态分配后和计算逻辑冲突 
 - spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况 
 
-**综合以上考虑，这个诊断对我们目前不适用，屏蔽这个诊断逻辑。**  
+**综合以上考虑，这个诊断对我们目前不适用，调大这人阈值到95**  
 - executorThreshold: 95   
 - driverThreshold: 95  
 
@@ -415,7 +414,8 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     - 数据倾斜比例 = 5000/1100 ≈ 4.55
     - 如果配置的阈值是3，那么这个stage就会被标记为存在数据倾斜(abnormal)
   - 诊断平台阈值
-  ```
+
+  ```yaml
   # 0w-5w
   - start: 0
     end: 50000
@@ -453,6 +453,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     end: 0
     threshold: 2
   ```
+
 ## 建议优化
 **针对Spark数据倾斜问题，常见的优化方法包括：**  
   - 增加分区数 ：通过 repartition 或 coalesce 增加分区数量，使数据分布更均匀
@@ -461,23 +462,20 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
   - 两阶段聚合 ：先对倾斜key进行局部聚合，再进行全局聚合
   - 过滤倾斜key ：单独处理倾斜key，再合并结果
   - 调整并行度 ：通过 spark.sql.shuffle.partitions 参数调整shuffle并行度
-  - 另参考 *   [跳到应对数据倾斜](#优化方向一：应对数据倾斜 (Data Skewness))
+  - 另参考 *   [优化方向一：应对数据倾斜 (Data Skewness)](#优化方向一：应对数据倾斜 (Data Skewness))
 
  **代码实现示例：**  
  ```java
  // 增加分区数
 Dataset<Row> repartitioned = dataset.repartition(200);
-
 // 广播小表
 Dataset<Row> smallTable = ...;
 Dataset<Row> bigTable = ...;
 Dataset<Row> joined = bigTable.join(broadcast(smallTable), "key");
-
 // 两阶段聚合
 Dataset<Row> stage1 = dataset.groupBy("key").agg(sum("value"));
 Dataset<Row> stage2 = stage1.groupBy("key").agg(sum("sum(value)"));
  ```
-
 
 # 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  

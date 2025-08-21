@@ -337,6 +337,80 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
 - 深度优化：考虑自定义分区器或优化UDF 代码和 JVM 参数。
 - 长尾问题的优化通常是上述多种方法结合使用、反复迭代的过程。核心思想永远是：将集中在一处的计算和存储压力，尽可能地分散到多个并行单元中去。
 
+# 数据倾斜
+## 描述
+### 计算公式
+  - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
+    具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)
+  - 举例说明：
+    - 假设某个stage有5个task，它们的shuffle read数据量分别为：[1000, 1200, 1100, 1050, 5000]
+    - 中位数median为1100，最大值max为5000
+    - 数据倾斜比例 = 5000/1100 ≈ 4.55
+    - 如果配置的阈值是3，那么这个stage就会被标记为存在数据倾斜(abnormal)
+  - 诊断平台阈值
+  ```
+  # 0w-5w
+  - start: 0
+    end: 50000
+    threshold: 0
+  # 5w-10w
+  - start: 50000
+    end: 100000
+    threshold: 100
+  # 10w-100w
+  - start: 100000
+    end: 1000000
+    threshold: 50
+  # 100w-500w
+  - start: 1000000
+    end: 5000000
+    threshold: 10
+  # 500w-2000w
+  - start: 5000000
+    end: 20000000
+    threshold: 5
+  # 2000w-3000w
+  - start: 20000000
+    end: 30000000
+    threshold: 3.5
+  # 3000w-4000w
+  - start: 30000000
+    end: 40000000
+    threshold: 3
+  # 4000w-5000w
+  - start: 40000000
+    end: 50000000
+    threshold: 2.25
+  # 5000w
+  - start: 50000000
+    end: 0
+    threshold: 2
+  ```
+## 建议优化
+**针对Spark数据倾斜问题，常见的优化方法包括：**  
+  - 增加分区数 ：通过 repartition 或 coalesce 增加分区数量，使数据分布更均匀
+  - 使用随机前缀 ：对倾斜的key添加随机前缀，分散数据到不同分区
+  - 广播小表 ：对于join操作中的小表，使用广播变量避免shuffle
+  - 两阶段聚合 ：先对倾斜key进行局部聚合，再进行全局聚合
+  - 过滤倾斜key ：单独处理倾斜key，再合并结果
+  - 调整并行度 ：通过 spark.sql.shuffle.partitions 参数调整shuffle并行度
+  - 另参考 *   [跳到应对数据倾斜](#优化方向一：应对数据倾斜 (Data Skewness))
+
+ **代码实现示例：**  
+ ```java
+ // 增加分区数
+Dataset<Row> repartitioned = dataset.repartition(200);
+
+// 广播小表
+Dataset<Row> smallTable = ...;
+Dataset<Row> bigTable = ...;
+Dataset<Row> joined = bigTable.join(broadcast(smallTable), "key");
+
+// 两阶段聚合
+Dataset<Row> stage1 = dataset.groupBy("key").agg(sum("value"));
+Dataset<Row> stage2 = stage1.groupBy("key").agg(sum("sum(value)"));
+ ```
+
 
 # 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  

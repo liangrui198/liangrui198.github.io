@@ -218,12 +218,14 @@ if (cpu浪费比例45% < 阈值50%)=> 正常
    - Driver初始化时间（加载依赖、注册应用等）
    - 作业调度延迟（特别是在动态资源分配模式下）
    - 数据倾斜导致的某些任务长时间运行，而其他资源处于空闲状态  
+   
 ## 我们当前的环境
 - 我们目前没有启用严格cpu分配和限制
 - 启用saprk动态分配后和计算逻辑冲突 
-- spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况   
+- spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况 
 
 **综合以上考虑，这个诊断对我们目前不适用，屏蔽这个诊断逻辑。**
+ executorThreshold=95  
 
 
 ## Task长尾
@@ -259,10 +261,10 @@ ratio = max_duration / median_duration
 val filteredRDD = originalRDD.filter(row => row.getAs[String]("key") != "异常Key值")  
  ```
  
- ##### c) 两阶段聚合（加盐/打散 -> 聚合 -> 去盐 -> 最终聚合）  
+- c) 两阶段聚合（加盐/打散 -> 聚合 -> 去盐 -> 最终聚合）  
 **场景：**适用于 reduceByKey, groupByKey, agg 等聚合类 Shuffle 操作。  
 **步骤：**  
-- 打散：给每个 Key 加上一个随机前缀（盐），将一个大 Key 拆分成多个小 Key。  
+**- 打散：**给每个 Key 加上一个随机前缀（盐），将一个大 Key 拆分成多个小 Key。  
 
 ```scala
 // 第一步：加盐局部聚合
@@ -273,14 +275,38 @@ val saltedPairRDD = originalPairRDD.map{ case (key, value) =>
 val partialAggRDD = saltedPairRDD.reduceByKey(_ + _) // 局部聚合
 ```
 
-- 去盐：去掉随机前缀，恢复原始 Key。
-- 最终聚合：对恢复后的原始 Key 进行全局聚合。
+**- 去盐：**去掉随机前缀，恢复原始 Key。
+```scala
+// 第二步：去盐
+val removedSaltRDD = partialAggRDD.map{ case (saltedKey, value) =>
+  val originalKey = saltedKey.substring(saltedKey.indexOf("-") + 1)
+  (originalKey, value)
+}
+```
+
+**- 最终聚合：**对恢复后的原始 Key 进行全局聚合。
+```scala
+// 第三步：全局聚合
+val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
+```
 **效果：**将原本由一个 Task 处理的一个大 Key 的计算压力，分摊给了多个 Task，完美解决倾斜。
-##### d) 使用随机Key实现扩容join
 
+ - d) 使用随机Key实现扩容join  
+  - **场景：**适用于大表 Join 倾斜维表（维度表中有热点 Key），即 Skew Join。
+  - **步骤：**
+    - 从大表中筛选出导致倾斜的热点 Key 列表。
+    - 打散大表：将大表中热点 Key 的数据加上随机前缀，从而扩容。
+    - 扩容维表：将维表中热点 Key 的数据复制多份（笛卡尔积），每份对应一个随机前缀。
+    - Join：将处理后的两个表进行 Join，由于热点 Key 被扩容后可以匹配上，非热点 Key 正常 Join。
+- 代码思路复杂，Spark 3.2+ 已原生支持 SKEW JOIN 优化，可通过 Hint 实现：
+  ```scala
+  spark.sql("""
+  SELECT /*+ SKEW('table_name', 'skewed_column') */ *
+  FROM table_name
+  """)
 
-
-
+  ```
+***在低版本中，通常需要手动实现上述逻辑。***
 
 #### 优化方向二：调整分区与并行度
 - a) 提高Shuffle并行度
@@ -310,6 +336,10 @@ val partialAggRDD = saltedPairRDD.reduceByKey(_ + _) // 局部聚合
 - 通用技巧：尝试增加 Shuffle 分区数 (spark.sql.shuffle.partitions)。
 - 深度优化：考虑自定义分区器或优化UDF 代码和 JVM 参数。
 - 长尾问题的优化通常是上述多种方法结合使用、反复迭代的过程。核心思想永远是：将集中在一处的计算和存储压力，尽可能地分散到多个并行单元中去。
+
+
+# 基线时间异常
+相对于历史正常结束时间，提前结束或晚点结束的任务  
 
 
 ## 待补充更多的诊断逻辑分析

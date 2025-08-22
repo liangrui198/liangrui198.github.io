@@ -448,6 +448,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     threshold: 2
   ```
   ### 计算公式
+
   - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
     具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)
   - 举例说明：
@@ -484,6 +485,30 @@ Dataset<Row> stage2 = stage1.groupBy("key").agg(sum("sum(value)"));
 找到对应的表sql，看是否有异常  
 ![alt text](CC0323778B0680E0C11089001CD53F7B.jpg)
 
+## 推测执行过多分析
+**Stage中推测执行任务数超过20个，即可判定为推测执行过多**
+![alt text](image.png)
+
+**当前spark3.2.1**
+```sql
+spark.speculation	true
+spark.speculation.interval	5s
+spark.speculation.multiplier	2
+--3.2.1默认值 
+spark.speculation.multiplier 1.5 //一项任务的速度要比平均速度慢多少倍，才能被纳入推测执行的范围之内。
+spark.speculation.quantile	0.75 //在为特定阶段启用推测之前必须完成的任务比例。
+```
+
+**建议优化**
+- 提高乘数因子 (spark.speculation.multiplier=3)  
+  使判断标准更严格，只有明显慢于平均水平的任务才会触发推测执行  
+- 提高任务完成比例阈值 (spark.speculation.quantile=0.9)
+  需要90%的任务完成后再开始判断，确保有足够样本计算有意义的平均时间  
+- spark4.0最新版本值也是deepseek建议的值  
+```
+spark.speculation.multiplier	3
+spark.speculation.quantile 0.9
+```
 
 # 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  

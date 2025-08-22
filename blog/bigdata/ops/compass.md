@@ -301,9 +301,8 @@ flowchart TD
 - driverThreshold: 95  
 
 
-## Task长尾
-### 诊断描述
-map/reduce task最大运行耗时远大于中位数的任务  
+## Task长尾 
+ **诊断描述** ：map/reduce task最大运行耗时远大于中位数的任务  
 
 ### 计算方式
 ```java
@@ -403,18 +402,11 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
 - 深度优化：考虑自定义分区器或优化UDF 代码和 JVM 参数。
 - 长尾问题的优化通常是上述多种方法结合使用、反复迭代的过程。核心思想永远是：将集中在一处的计算和存储压力，尽可能地分散到多个并行单元中去。
 
-# 数据倾斜
-## 描述
-### 计算公式
-  - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
-    具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)
-  - 举例说明：
-    - 假设某个stage有5个task，它们的shuffle read数据量分别为：[1000, 1200, 1100, 1050, 5000]
-    - 中位数median为1100，最大值max为5000
-    - 数据倾斜比例 = 5000/1100 ≈ 4.55
-    - 如果配置的阈值是3，那么这个stage就会被标记为存在数据倾斜(abnormal)
-  - 诊断平台阈值
-
+## 数据倾斜
+ 描述 数据倾斜诊断规则如下:  
+  1、任务总耗时>30min
+  2、stage耗时/任务总耗时>45%
+  3、shuffle read的数据量满足一下条件之一：
   ```yaml
   # 0w-5w
   - start: 0
@@ -453,8 +445,17 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     end: 0
     threshold: 2
   ```
+  ### 计算公式
+  - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
+    具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)
+  - 举例说明：
+    - 假设某个stage有5个task，它们的shuffle read数据量分别为：[1000, 1200, 1100, 1050, 5000]
+    - 中位数median为1100，最大值max为5000
+    - 数据倾斜比例 = 5000/1100 ≈ 4.55
+    - 如果配置的阈值是3，那么这个stage就会被标记为存在数据倾斜(abnormal)
+  - 诊断平台阈值
 
-## 建议优化
+### 建议优化
 **针对Spark数据倾斜问题，常见的优化方法包括：**  
   - 增加分区数 ：通过 repartition 或 coalesce 增加分区数量，使数据分布更均匀
   - 使用随机前缀 ：对倾斜的key添加随机前缀，分散数据到不同分区
@@ -477,8 +478,14 @@ Dataset<Row> stage1 = dataset.groupBy("key").agg(sum("value"));
 Dataset<Row> stage2 = stage1.groupBy("key").agg(sum("sum(value)"));
  ```
 
+## 大表扫描
+找到对应的表sql，看是否有异常  
+![alt text](CC0323778B0680E0C11089001CD53F7B.jpg)
+
+
 # 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  
+
 
 
 ## 待补充更多的诊断逻辑分析

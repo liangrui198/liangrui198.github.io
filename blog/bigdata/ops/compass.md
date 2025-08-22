@@ -447,8 +447,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     end: 0
     threshold: 2
   ```
-  ### 计算公式
-
+  ### 计算公式  
   - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
     具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)
   - 举例说明：
@@ -466,7 +465,20 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
   - 两阶段聚合 ：先对倾斜key进行局部聚合，再进行全局聚合
   - 过滤倾斜key ：单独处理倾斜key，再合并结果
   - 调整并行度 ：通过 spark.sql.shuffle.partitions 参数调整shuffle并行度
-  - 另参考 *   [优化方向一：应对数据倾斜 (Data Skewness)](#优化方向一：应对数据倾斜 (Data Skewness))
+  - 另参考 *   [优化方向一：应对数据倾斜 (Data Skewness)](#优化方向一：应对数据倾斜 (Data Skewness))  
+  例：把个saprk sql 识别出数据倾斜，把执行计化丢给AI  
+  ![alt text](image-2.png)
+  ![alt text](image-1.png)  
+
+  优化后的sql:  
+  这里是根据session_id分组求 path最长的一条，所以null值也只会取一条，这里可以直接干掉，或把null值单独去求一个max  
+  
+  ```sql
+  select
+    xxx,
+    row_number() over(partition by session_id  order by    length(path) desc ) as row_id
+  from   raw_expand_data where session_id is not null
+  ```
 
  **代码实现示例：**  
  ```java
@@ -510,7 +522,14 @@ spark.speculation.multiplier	3
 spark.speculation.quantile 0.9
 ```
 
-# 基线时间异常
+## Job耗时异常分析
+**Job中空闲时间 (job总时间 - stage累计时间) 与总时间的占比超过30.00%%，即判定为Job耗时异常**
+
+## Stage耗时异常分析
+**Stage空闲时间 (stage运行时间-任务运行时间) 与stage运行时间的占比超过30.0%，即判定为Stage耗时异常**
+
+
+## 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  
 
 

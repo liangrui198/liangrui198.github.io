@@ -403,10 +403,12 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
 - 长尾问题的优化通常是上述多种方法结合使用、反复迭代的过程。核心思想永远是：将集中在一处的计算和存储压力，尽可能地分散到多个并行单元中去。
 
 ## 数据倾斜
- 描述 数据倾斜诊断规则如下:  
-  1、任务总耗时>30min
-  2、stage耗时/任务总耗时>45%
-  3、shuffle read的数据量满足一下条件之一：
+
+ **描述:** 数据倾斜诊断规则如下  
+   1、任务总耗时>30min  
+   2、stage耗时/任务总耗时>45%  
+   3、shuffle read的数据量满足一下条件之一：  
+
   ```yaml
   # 0w-5w
   - start: 0
@@ -445,6 +447,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     end: 0
     threshold: 2
   ```
+  
   ### 计算公式
   - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
     具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)

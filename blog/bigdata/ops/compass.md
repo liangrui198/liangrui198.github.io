@@ -92,6 +92,8 @@ DelayedTask延迟任务处理，通过spingBoot->CommandLineRunner实现启动�
 离线列表入口为 JobController -> /api/v1/job/list  -> 查询ES索上compass-job-analysis*  
 离线诊断入口  /openapi/offline/app/metadata -> redis:{lua}:log:record ->| task-parser -> RedisConsumer数据消费  redis:{lua}:log:record 
 
+- 异常统计ES
+  - 异常列表：JobController -> /jobDiagnoseInfo -> ES索引:compass-detector-${date}->数据格式:DetectorStorage->BigTableScanService 处理后生成->展示作业异常信息
 
 
 ## dolphinScheduler主要表关系
@@ -540,6 +542,302 @@ spark.speculation.quantile 0.9
 # 后续优化
   默认诊断不符合当前效果，后续需要结合实际场景，给出优化建议
 
+<details>
+
+<summary>spark读取HDFS json文件进行解析</summary>
+
+# 异常排名统计
+  诊断结果存在ES,非标准统一格式的json，很难通过ES sql统计出来，偿试用spark read ES直接分析，spark推到结构打败，json结构过于复杂和不一致导致。  
+  这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
+
+  ```scala
+  package com.aengine.spark.app.compass
+
+import com.aengine.spark.utils.ResourcesUtils
+import org.apache.commons.lang.StringUtils
+import org.apache.spark.sql.{DataFrame, SparkSession, functions}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{ArrayType, BooleanType, FloatType, IntegerType, LongType, StringType, StructField, StructType}
+import java.text.SimpleDateFormat
+import java.util.{Calendar, Locale}
+
+/**
+ * read ES JSON DATA parese json data to detect result order by max values TOP_N
+ * create by liangrui on 20250904
+ *
+ * es json data to hdfs by spark  stat top
+ * es_date=2025-09-07
+ * elasticdump   --input=http://10.12.77.46:2949/compass-detector-app-$es_date --output=/data/es/compass-detector-app-$es_date.json  --type=data
+ * hdfs dfs -put  /data/es/compass-detector-app-$es_date.json /data/es/
+ *
+ */
+object ReadEsJosnFile {
+  //解析json规则
+  //dataSewk  -> ratio
+  //stageDurationAbnormal  -> ratio
+  //jobDurationAbnormal  -> ratio
+  //taskDurationAbnormal  -> ratio
+  //hdfsStuck  -> ratio
+  //speculativeTask  -> speculativeCount
+  //largeTableScan   -> rows
+
+
+  def main(args: Array[String]): Unit = {
+
+    var Array(argDate, other) = (args ++ Array(null, null)).slice(0, 2)
+    val dateFormatter = new SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val calendar = Calendar.getInstance
+    //calendar.add(Calendar.HOUR_OF_DAY, -1) // 减去1小时
+    val currentDate = dateFormatter.format(calendar.getTime)
+    var es_index_file = ""
+    if (StringUtils.isBlank(argDate)) {
+      es_index_file = s"/data/es/compass-detector-app-$currentDate.json"
+      argDate = currentDate
+    } else {
+      es_index_file = s"/data/es/compass-detector-app-$argDate.json"
+    }
+    println("es_index:" + es_index_file)
+    val spark = SparkSession.builder()
+      .appName("com.aengine.spark.app.compass.SparkReadES")
+      .getOrCreate()
+    val df = spark.read.json(es_index_file)
+    df.printSchema()
+    df.show()
+    val newDF = df.select("_source.applicationId", "_source.taskName", "_source.executionTime", "_source.dataList", "_source.projectName", "_source.flowName")
+      .filter(col("dataList").isNotNull && functions.size(col("dataList")) > 0)
+
+    val df_parsed = newDF.select(
+      col("applicationId"),
+      col("taskName"),
+      col("executionTime"),
+      col("projectName"),
+      col("flowName"),
+      explode(col("dataList")).alias("dataListItem"))
+
+    //# 提取dataList中的字段
+    // 首先检查dataListItem的schema来确定tables字段是否存在
+    val dataListItemColumns = df_parsed.select(col("dataListItem")).schema.head.dataType.asInstanceOf[org.apache.spark.sql.types.StructType].fieldNames.toSet
+
+    val expandedDF = if (dataListItemColumns.contains("tables")) {
+      // 如果tables字段存在，正常提取
+      df_parsed.select(
+        col("applicationId"),
+        col("taskName"),
+        col("executionTime"),
+        col("projectName"),
+        col("flowName"),
+        col("dataListItem.abnormal").alias("abnormal"),
+        col("dataListItem.appCategory").alias("appCategory"),
+        col("dataListItem.data").alias("data"),
+        col("dataListItem.tables").alias("tables")
+      )
+    } else {
+      // 如果tables字段不存在，添加空数组
+      df_parsed.select(
+        col("applicationId"),
+        col("taskName"),
+        col("executionTime"),
+        col("projectName"),
+        col("flowName"),
+        col("dataListItem.abnormal").alias("abnormal"),
+        col("dataListItem.appCategory").alias("appCategory"),
+        col("dataListItem.data").alias("data"),
+        lit(null).cast("string").alias("tables")
+      )
+    }
+    println("expandedDF print====")
+    expandedDF.printSchema()
+    expandedDF.show()
+    // 定义Schema
+    val dataSkewSchema = StructType(Seq(
+      StructField("abnormal", BooleanType, true),
+      // StructField("attemptNumber", LongType, true),
+      //StructField("duration", LongType, true),
+      // StructField("jobId", LongType, true),
+      // StructField("maxShuffleReadBytes", LongType, true),
+      //StructField("maxShuffleReadRecords", LongType, true),
+      //StructField("medianRecords", LongType, true),
+      StructField("ratio", FloatType, true),
+      //StructField("stageId", FloatType, true),
+      StructField("threshold", FloatType, true)
+    ))
+    val dataSchema = ArrayType(dataSkewSchema) // 定义为数组类型
+    // ration column 的解析逻辑
+    val RatioDF = expandedDF.
+      filter(
+        """
+          |abnormal=true
+          | and appCategory
+          | in('dataSkew','stageDurationAbnormal','jobDurationAbnormal','taskDurationAbnormal','hdfsStuck') """
+          .stripMargin).
+      withColumn("data_array", from_json(col("data"), dataSchema,
+        Map("mode" -> "PERMISSIVE", "allowNumericLeadingZeros" -> "true")))
+    val RatioResultDF = getRatioDF(spark, RatioDF, "ratio")
+
+    // rows column 的解析逻辑
+    val rowsStructSchema = StructType(Seq(
+      StructField("abnormal", BooleanType, true),
+      StructField("rows", LongType, true),
+      StructField("threshold", FloatType, true)
+    ))
+    val rowsSchema = ArrayType(rowsStructSchema) // 定义为数组类型
+    val RowsDF = expandedDF.filter("abnormal=true and appCategory = 'largeTableScan'").
+      withColumn("data_array", from_json(col("data"), rowsSchema,
+        Map("mode" -> "PERMISSIVE", "allowNumericLeadingZeros" -> "true")))
+    val RowsResultDF = getRatioDF(spark, RowsDF, "rows")
+
+    // speculativeCount column 的解析逻辑
+    val speculativeCountStructSchema = StructType(Seq(
+      StructField("abnormal", BooleanType, true),
+      StructField("speculativeCount", IntegerType, true),
+      StructField("threshold", FloatType, true)
+    ))
+    val speculativeCountSchema = ArrayType(speculativeCountStructSchema) // 定义为数组类型
+    val speculativeCountDF = expandedDF.filter("abnormal=true and appCategory = 'speculativeTask'").
+      withColumn("data_array", from_json(col("data"), speculativeCountSchema,
+        Map("mode" -> "PERMISSIVE", "allowNumericLeadingZeros" -> "true")))
+    val speculativeCountResultDF = getRatioDF(spark, speculativeCountDF, "speculativeCount")
+
+    //union
+    val ResultDF = RatioResultDF.union(RowsResultDF).union(speculativeCountResultDF).
+      withColumn("es_index", lit(argDate)).
+      withColumn("create_date", lit(currentDate))
+    ResultDF.show(false)
+
+    //wirter mysql
+    val jdbc_conf = ResourcesUtils.getProperties("jdbc.properties")
+    val targetJdbcUrl = jdbc_conf.getProperty("compass_url")
+    val targetJdbcUsername = jdbc_conf.getProperty("compass_user")
+    val targetJdbcPassword = jdbc_conf.getProperty("compass_password")
+    //delete
+    deleteMysql(targetJdbcUrl, targetJdbcUsername, targetJdbcPassword, argDate)
+    ResultDF.write
+      .format("jdbc")
+      .option("url", targetJdbcUrl)
+      .option("driver", "com.mysql.jdbc.Driver")
+      .option("dbtable", "detect_top")
+      .option("user", targetJdbcUsername)
+      .option("password", targetJdbcPassword)
+      .mode("append")
+      .save()
+
+    spark.stop()
+  }
+
+
+  /**
+   * get  column max value order by to top
+   *
+   * @param spark
+   * @param RatioDF
+   * @return
+   */
+  def getRatioDF(spark: SparkSession, RatioDF: DataFrame, columnName: String): DataFrame = {
+    println("finalDF print====")
+    RatioDF.printSchema()
+    RatioDF.show(10, false)
+    RatioDF.select(
+      col("applicationId"),
+      col("taskName"),
+      col("executionTime"),
+      col("projectName"),
+      col("flowName"),
+      col("abnormal"),
+      col("appCategory"),
+      explode(col("data_array")).alias("data_element")
+    ).select(
+      col("applicationId"),
+      col("taskName"),
+      col("executionTime"),
+      col("projectName"),
+      col("flowName"),
+      col("abnormal"),
+      col("appCategory"),
+      col("data_element.abnormal").alias("data_abnormal"), // 提取结构体内的字段
+      //col(s"data_element.$columnName").alias("data_col"),
+      col(s"data_element.$columnName").cast("float").alias("data_col"),
+      col("data_element.threshold").alias("threshold"),
+      // col("data_element.jobId").alias("jobId"),
+      //col("data_element.stageId").alias("stageId")
+    ).filter("data_abnormal=true").createOrReplaceTempView("tmp_result")
+
+    spark.sql(
+      s"""
+         |with ranked_data as (
+         |  select
+         |    projectName as project_name,
+         |    flowName as flow_name,
+         |    taskName as task_name,
+         |    applicationId as application_id,
+         |    executionTime as execution_time,
+         |    appCategory as app_category,
+         |    ROUND(max(data_col),2) as max_detect,
+         |    ROUND(sum(data_col),2) as sum_detect,
+         |    ROW_NUMBER() OVER (PARTITION BY appCategory ORDER BY ROUND(max(data_col),2) DESC) as rn
+         |  from tmp_result
+         |  group by
+         |    projectName,flowName,taskName,applicationId,executionTime,appCategory
+         |)
+         |select 
+         |  project_name,
+         |  flow_name,
+         |  task_name,
+         |  application_id,
+         |  execution_time,
+         |  app_category,
+         |  max_detect,
+         |  sum_detect
+         |from ranked_data
+         |where rn <= 100
+         |order by app_category, max_detect desc
+         |""".stripMargin)
+  }
+
+  def deleteMysql(jdbcUrl: String, jdbcUsername: String, jdbcPassword: String, es_index: String): Unit = {
+    import java.sql.{Connection, DriverManager, PreparedStatement}
+    var connection: Connection = null
+    var preparedStatement: PreparedStatement = null
+
+    try {
+      // 注册驱动，建立连接
+      Class.forName("com.mysql.jdbc.Driver")
+      //Class.forName("com.mysql.cj.jdbc.Driver")
+      println(s"Connecting to database: $jdbcUrl")
+      connection = DriverManager.getConnection(jdbcUrl, jdbcUsername, jdbcPassword)
+      println("Database connection established successfully.")
+
+      // 构建参数化的DELETE SQL语句
+      val sql = "DELETE FROM detect_top WHERE es_index = ?"
+      println(s"Preparing SQL: $sql with parameter: $es_index")
+      preparedStatement = connection.prepareStatement(sql)
+
+      // 设置参数
+      preparedStatement.setString(1, es_index)
+
+      // 执行删除（不使用事务，直接提交）
+      val affectedRows = preparedStatement.executeUpdate()
+      println(s"Delete operation completed. Affected rows: $affectedRows")
+
+      if (affectedRows > 0) {
+        println(s"Successfully deleted $affectedRows rows from detect_top where es_index = '$es_index'")
+      } else {
+        println(s"No rows found with es_index = '$es_index' in detect_top table")
+      }
+    } catch {
+      case e: Exception =>
+        println(s"Error occurred during delete operation: ${e.getMessage}")
+        e.printStackTrace()
+    } finally {
+      // 关闭资源
+      if (preparedStatement != null) preparedStatement.close()
+      if (connection != null) connection.close()
+    }
+  }
+
+
+}
+  ```
+</details>
 
 <script>
 // 支持点击二级标题时，收起其下所有内容（包括三级及更深标题和内容）

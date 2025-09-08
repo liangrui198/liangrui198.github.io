@@ -549,7 +549,7 @@ spark.speculation.quantile 0.9
 # 异常排名统计
   诊断结果存在ES,非标准统一格式的json，很难通过ES sql统计出来，偿试用spark read ES直接分析，spark推到结构打败，json结构过于复杂和不一致导致。  
   这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
-
+![alt text](image-3.png)
   ```scala
   package com.aengine.spark.app.compass
 
@@ -833,7 +833,6 @@ object ReadEsJosnFile {
       if (connection != null) connection.close()
     }
   }
-
 
 }
   ```

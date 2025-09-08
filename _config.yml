@@ -16,6 +16,18 @@ title: 博客记录
 # 构建设置
 theme: minima
 
+# 代码高亮设置
+highlighter: rouge
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    css_class: 'highlight'
+    span:
+      line_numbers: false
+    block:
+      line_numbers: false
+
 plugins:
   - jekyll-feed
   - jekyll-sitemap

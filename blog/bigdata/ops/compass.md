@@ -544,8 +544,10 @@ spark.speculation.quantile 0.9
  - 诊断结果存在ES,非标准统一格式的json，很难通过ES sql统计出来，偿试用spark read ES直接分析，spark推到结构打败，json结构过于复杂和不一致导致。  
  - 这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
 ![alt text](image-3.png)
-<details>
-<summary>点击展开spark解析代码</summary>
+
+<div class="code-collapse">
+<div class="code-collapse-header" onclick="toggleCodeCollapse(this)">点击展开spark解析代码 <span class="toggle-icon">▼</span></div>
+<div class="code-collapse-content" style="display: none;">
 
 ```scala
 package com.aengine.spark.app.compass
@@ -829,11 +831,30 @@ object ReadEsJosnFile {
       if (connection != null) connection.close()
     }
   }
-}
-```
-</details>
+}  
+
+``` 
+
+</div>
+</div>
 
 <script>
+// 代码折叠功能
+function toggleCodeCollapse(header) {
+  const content = header.nextElementSibling;
+  const icon = header.querySelector('.toggle-icon');
+  
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    icon.textContent = '▼';
+    header.classList.remove('collapsed');
+  } else {
+    content.style.display = 'none';
+    icon.textContent = '▶';
+    header.classList.add('collapsed');
+  }
+}
+
 // 支持点击二级标题时，收起其下所有内容（包括三级及更深标题和内容）
 // 并自动生成大纲目录
 document.addEventListener('DOMContentLoaded', function() {

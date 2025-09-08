@@ -545,9 +545,9 @@ spark.speculation.quantile 0.9
  - 这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
 ![alt text](image-3.png)
 <details>
-<summary>spark解析代码如下</summary>  
+<summary>点击展开spark解析代码</summary>
 
- ```scala
+```scala
 package com.aengine.spark.app.compass
 import com.aengine.spark.utils.ResourcesUtils
 import org.apache.commons.lang.StringUtils

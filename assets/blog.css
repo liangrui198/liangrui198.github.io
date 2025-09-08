@@ -264,13 +264,6 @@ pre code {
 }
 
 /* 代码折叠样式 */
-.code-collapse {
-  margin: 16px 0;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
 .code-collapse-header {
   background: #f6f8fa;
   padding: 12px 16px;
@@ -278,8 +271,10 @@ pre code {
   user-select: none;
   font-weight: 500;
   color: #24292e;
-  border-bottom: 1px solid #e1e4e8;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px 6px 0 0;
   transition: background-color 0.2s;
+  margin: 16px 0 0 0;
 }
 
 .code-collapse-header:hover {
@@ -296,11 +291,22 @@ pre code {
 }
 
 .code-collapse-content {
-  padding: 0;
+  border: 1px solid #e1e4e8;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  margin: 0 0 16px 0;
+  overflow: hidden;
 }
 
 .code-collapse-content .highlight {
   margin: 0;
   border: none;
   border-radius: 0;
+}
+
+.scala-code-block {
+  border: 1px solid #e9ecef;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  margin-top: 0;
 }

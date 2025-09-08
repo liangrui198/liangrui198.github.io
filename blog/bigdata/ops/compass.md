@@ -545,9 +545,7 @@ spark.speculation.quantile 0.9
  - 这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
 ![alt text](image-3.png)
 
-<div class="code-collapse">
 <div class="code-collapse-header" onclick="toggleCodeCollapse(this)">点击展开spark解析代码 <span class="toggle-icon">▼</span></div>
-<div class="code-collapse-content" style="display: none;">
 
 ```scala
 package com.aengine.spark.app.compass
@@ -565,7 +563,7 @@ import java.util.{Calendar, Locale}
  *
  * es json data to hdfs by spark  stat top
  * es_date=2025-09-07
- * elasticdump   --input=http://10.12.77.46:2949/compass-detector-app-$es_date --output=/data/es/compass-detector-app-$es_date.json  --type=data
+ * elasticdump   --input=http://xx:2949/compass-detector-app-$es_date --output=/data/es/compass-detector-app-$es_date.json  --type=data
  * hdfs dfs -put  /data/es/compass-detector-app-$es_date.json /data/es/
  *
  */
@@ -833,25 +831,30 @@ object ReadEsJosnFile {
   }
 }  
 
-``` 
-
-</div>
-</div>
+```
+{: .scala-code-block style="display: none;"}
 
 <script>
 // 代码折叠功能
 function toggleCodeCollapse(header) {
-  const content = header.nextElementSibling;
-  const icon = header.querySelector('.toggle-icon');
+  // 找到下一个scala-code-block元素
+  let content = header.nextElementSibling;
+  while (content && !content.classList.contains('scala-code-block')) {
+    content = content.nextElementSibling;
+  }
   
-  if (content.style.display === 'none') {
-    content.style.display = 'block';
-    icon.textContent = '▼';
-    header.classList.remove('collapsed');
-  } else {
-    content.style.display = 'none';
-    icon.textContent = '▶';
-    header.classList.add('collapsed');
+  if (content) {
+    const icon = header.querySelector('.toggle-icon');
+    
+    if (content.style.display === 'none' || content.style.display === '') {
+      content.style.display = 'block';
+      icon.textContent = '▼';
+      header.classList.remove('collapsed');
+    } else {
+      content.style.display = 'none';
+      icon.textContent = '▶';
+      header.classList.add('collapsed');
+    }
   }
 }
 

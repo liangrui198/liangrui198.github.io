@@ -49,28 +49,25 @@ flowchart TD
   end
 </div>
 
-
-## canal作用
+## compass服务模块作用
+- canal作用
 通过kafka 主题为:mysqldata, 进行同步调度数据表到compass表  
 adapter主要是适配不同调度表数据，主要配置srcDataSources:源调度的数据源， canalAdapters:目标数据源
 具体表转换规则在：task-canal-adapter/src/main/adapter/conf/rdb/xx.yml 进行配置
-
-## task metadata
+- task metadata
 主要是同步spark yarn 的作业元数据
-
-## task syncer
+- task syncer
 通过消费 kafka主题:mysqldata的调度mysql表数据，转存为compass表 
 并且写kafka入信息(xx_task_instance表)：消费topic：mysqldata  ->  发送 topic:task-instance
 
-## task application
+- task application
 将工作流层与引擎层元数据关联  
 消费 kafka主题:task-instance, 通过task_instance.id从task_instance表中查询出实例信息  
 通过解析日志文件，使用正则表达式匹配提取出来找到对应的application_id,->rules.extractLog.name
 转换数据后写入mysql -> compass.task_application表中，
 并将TaskApplication信息发送到kafka -> 主题为:task-application ->flink模块进行消费
 
-
-## task-detect
+- task-detect
 模块进行工作流层异常任务检测，例如运行失败、基线耗时异常等  
 DetectedTask通过消费kafka主题：task-instance进行处理逻辑,取到的是task实例信息，  
 再通过projectName,flowName,taskName,executionTime去mysql表：task_application查询出app信息，  
@@ -81,11 +78,11 @@ Redis -> ({lua}:delayed:task)
 DelayedTask延迟任务处理，通过spingBoot->CommandLineRunner实现启动时运行  
 
 
-## task parser
+- task parser
 进行引擎层异常任务检测，例如SQL失败、Shuffle失败等 
 从redis中消费->{lua}:parser:processing 
 
-## task portal
+- task portal
 前端页面展示相关接口模块
 报告总览      ReportController -> /api/v1/report  
 调度列表入口为 AppController -> /api/v1/app/list  -> 查询ES索引compass-task-app*   
@@ -543,14 +540,16 @@ spark.speculation.quantile 0.9
   默认诊断不符合当前效果，后续需要结合实际场景，给出优化建议
 
 <details>
-
-<summary>spark读取HDFS json文件进行解析</summary>
+<summary>spark读取HDFS json文件进行解析</summary>  
 
 # 异常排名统计
-  诊断结果存在ES,非标准统一格式的json，很难通过ES sql统计出来，偿试用spark read ES直接分析，spark推到结构打败，json结构过于复杂和不一致导致。  
-  这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
+
+ - 诊断结果存在ES,非标准统一格式的json，很难通过ES sql统计出来，偿试用spark read ES直接分析，spark推到结构打败，json结构过于复杂和不一致导致。  
+ - 这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
+
 ![alt text](image-3.png)
-  ```scala
+
+ ```scala
   package com.aengine.spark.app.compass
 
 import com.aengine.spark.utils.ResourcesUtils
@@ -833,9 +832,8 @@ object ReadEsJosnFile {
       if (connection != null) connection.close()
     }
   }
-
 }
-  ```
+```
 </details>
 
 <script>

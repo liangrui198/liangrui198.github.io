@@ -173,7 +173,7 @@ task_application表：
 ### 最终效果预览
 ![alt text](../../../image/ops/compass/01.png)
 
-# 诊断逻辑解析
+## 诊断逻辑解析
 
  默认诊断配置:compass\task-parser\src\main\resources\application.yml  
 
@@ -250,6 +250,8 @@ flowchart TD
 
 - **Task：** 一个 Stage 会根据其分区数（Partitions）被拆分成多个 Task。Task 是 Spark 中最基本的工作单元和执行单元，每个 Task 在一个 Executor 的一个核心上处理一个分区的数据。一个 Stage 的所有 Task 执行的计算逻辑是完全一样的，只是处理的数据不同。  
 - stage中存在task最大运行耗时远大于中位数的任务为异常
+
+## 诊断逻辑案例分析
 
 ### cpu浪费计算
 #### executor计算
@@ -531,7 +533,7 @@ spark.speculation.quantile 0.9
 ### 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  
 
-### hdfs卡顿分析
+### hdfs卡顿分析  
  **计算Stage中每个任务的处理速率(读取数据量与耗时的比值), 当处理速率的中位值与最小值的比大于10.00,即判定为HDFS卡顿**  
 - task的切分很不均匀，task5只读了一点点的ranger范围，然后dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib之认文件的0-121518116还被task1 和task2重复读
 ![alt text](task_split.png)
@@ -580,16 +582,13 @@ ORC配置：Stripe的大小（默认64MB）、行索引的间隔等都会影响�
 **为什么尽管空间变大了，ORC仍然是绝对首选？**
 - 因为你用这一点点额外的空间，换来了数个数量级的查询性能提升：  
 - 可分割（Splittable）：ORC文件可以被切割，允许多个Task并行读取，彻底解决了你最初问题中的负载不均问题。这是最大的好处。
-- 谓词下推（Predicate Pushdown）：Spark可以直接读取ORC文件尾部的统计信息，在真正读数据之前就跳过整个不相关的stripe和行组。例如，查询 WHERE date = '2025-09-09'，Spark只会读取dt=20250909分区下的文件，- 甚至可能只读取这些文件中的几个stripe，而不是全表扫描。
+- 谓词下推（Predicate Pushdown）：Spark可以直接读取ORC文件尾部的统计信息，在真正读数据之前就跳过整个不相关的stripe和行组。例如，查询 WHERE date = '2025-09-09'，Spark只会读取dt=20250909分区下的文件，- 甚至可能只读取这些文件中的几个stripe，而不是全表扫描，2者都受益。  
+  - 第一道关卡（分区剪枝）：Zlib和ORC都能受益。跳过整个不相干的分区目录。
+  - 第二道关卡（Stripe剪枝）：只有ORC等列式格式能受益。在一个分区目录内部，跳过不相干的Stripe/行组。
+
 - 列式读取（Columnar Pruning）：如果你的查询只选择 user_id, name 两列，Spark只会从ORC文件中读取这两列的数据，而不是读取所有列然后丢弃它们。这对于宽表查询性能提升是毁灭性的。
 - 高效的编码：ORC在压缩之前会针对不同类型的数据使用更高效的编码（如Integer的Run-Length Encoding，String的Dictionary Encoding），这有时甚至能比直接Zlib压缩获得更好的压缩比（部分抵消元数据开销）。
 
-
-## 待补充更多的诊断逻辑分析
-
-
-# 后续优化
-  默认诊断不符合当前效果，后续需要结合实际场景，给出优化建议  
 
 
 ## 异常排名统计 

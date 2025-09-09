@@ -251,8 +251,8 @@ flowchart TD
 - **Task：** 一个 Stage 会根据其分区数（Partitions）被拆分成多个 Task。Task 是 Spark 中最基本的工作单元和执行单元，每个 Task 在一个 Executor 的一个核心上处理一个分区的数据。一个 Stage 的所有 Task 执行的计算逻辑是完全一样的，只是处理的数据不同。  
 - stage中存在task最大运行耗时远大于中位数的任务为异常
 
-## cpu浪费计算
-### executor计算
+### cpu浪费计算
+#### executor计算
 - 任务实际使用的计算资源（毫秒）
   spark所有的job 执行时间相加:  inJobComputeMillisUsed= (for-> spark.job.executorRunTime++)
 
@@ -266,19 +266,19 @@ flowchart TD
   if (cpu浪费比例45% < 阈值50%)=> 正常
 **备注:**这里如果启用了spark 动态分配设置(spark.dynamicAllocation.enabled)，计算完的executor会关闭，安这种方式计算，会把关闭后的executor也会算为在应用cpu， 这样的话计算是不合理的
 
-### driver计算
+#### driver计算
 - 主要是计算 dirver中间卡顿没有计算的比例，比如调度下一个job时没有资源可用
 - appTotalTime 表示整个Spark应用的总运行时间   
 - jobTime 表示所有Spark作业实际执行时间的总和   
  driverComputeMillisWastedJobBased = driverTimeJobBased * totalCores  
  driverTimeJobBased = appTotalTime - jobTime （应用总时间减去作业时间）  
  appComputeMillisAvailable = totalCores * appTotalTime （总核心数乘以应用总时间）  
- #### driver cpu浪费比例
+ ##### driver cpu浪费比例
  driverWastedPercentOverAll =
                 ((float) driverComputeMillisWastedJobBased / appComputeMillisAvailable) * 100;
 在Spark应用中， appTotalTime 和 jobTime 差距较大的情况主要有以下几种：
 
-### appTotalTime和jobTime的差距区别 说明
+#### appTotalTime和jobTime的差距区别 说明
 1. 资源等待 ：     
    - 启动Driver后YARN没有可用资源时
    - 作业执行过程中资源被抢占或释放后重新申请
@@ -290,7 +290,7 @@ flowchart TD
    - 作业调度延迟（特别是在动态资源分配模式下）
    - 数据倾斜导致的某些任务长时间运行，而其他资源处于空闲状态  
    
-#### 我们当前的环境
+##### 我们当前的环境
 - 我们目前没有启用严格cpu分配和限制
 - 启用saprk动态分配后和计算逻辑冲突 
 - spark kyuubi机器就是存在浪费cpu和内存常驻进程机器来换取加速启动进程，会存在浪费情况 
@@ -300,20 +300,20 @@ flowchart TD
 - driverThreshold: 95  
 
 
-## Task长尾 
+### Task长尾 
  **诊断描述** ：map/reduce task最大运行耗时远大于中位数的任务  
 
-### 计算方式
+#### 计算方式
 ```java
 // 计算每个task的最大执行时间与中位数的比值
 ratio = max_duration / median_duration
 // taskDurationConfig.threshold default:10
 当 ratio > threshold 时（threshold来自配置），判定为长尾异常
 ```
-### 建议优化
-#### 首先确认是数据倾斜还是计算倾斜
+#### 建议优化
+##### 首先确认是数据倾斜还是计算倾斜
 - 如果某个 Task 的 Shuffle Read 数据量远大于其他 Task，基本可以断定是数据倾斜。如果处理的数据量差不多，但执行时间差别大，可能是计算倾斜（例如某个分区的数据导致了更复杂的计算逻辑，如深层循环）。
-#### 优化方向一：应对数据倾斜 (Data Skewness)
+##### 优化方向一：应对数据倾斜 (Data Skewness)
  **这是最常见的原因，即某些 Key 对应的数据量远大于其他 Key。**
  **a) 预处理数据源**
  - **理想方案**：如果可能，直接从数据源端进行预处理，将热点数据打散。例如在 Hive ETL 阶段就对频繁使用的 Key 进行加盐或打散。
@@ -372,7 +372,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
   ```
 ***在低版本中，通常需要手动实现上述逻辑。***
 
-#### 优化方向二：调整分区与并行度
+##### 优化方向二：调整分区与并行度
 - a) 提高Shuffle并行度
   **方案：**通过设置 spark.sql.shuffle.partitions（默认200）来增加 Shuffle 后的分区数。  
   **原理：**让数据被分配到更多个 Task 中去处理，即使有数据倾斜，更大的分区数也可能让倾斜程度相对降低。这是一个简单但可能有效的“缓兵之计”。   
@@ -386,14 +386,14 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
 **场景：**例如，你明确知道某些 Key 是热点，可以编写自己的 Partitioner 类，将这些 Key 强制分配到多个特定的分区中去。
 
 
-#### 优化方向三：检查计算逻辑与资源
+##### 优化方向三：检查计算逻辑与资源
 - 如果不是数据问题，而是计算问题：
   - **检查UDF（用户自定义函数）**:你的 UDF 中是否存在低效操作（如频繁创建对象、递归过深）？是否在某些特定数据上会触发低效路径？优化你的代码逻辑。
   - **检查资源竞争**:
     - **GC（垃圾回收）**:长尾 Task 可能因为处理的数据量大，触发了频繁的 Full GC。在 Spark UI 中检查该 Task 的 GC 时间。考虑使用 G1GC 并调整堆内存和 GC 参数。
     - **Executor 负载不均**:可能某个 Executor 所在的物理机负载本身就很高（CPU、磁盘IO、网络IO被其他进程占用），导致上面的所有 Task 都变慢。需要从集群监控层面排查。
 
-### 优化总结与流程
+##### 优化总结与流程
 - 定位：使用 Spark UI 确定是数据倾斜还是计算倾斜。
 - 首选：如果能过滤掉倾斜Key，这是最直接的方法。
 - 核心手段：对于聚合操作，优先考虑两阶段聚合（加盐）；对于 Join 操作，优先看能否使用 Spark 3.2+ 的 SKEW JOIN Hint。
@@ -401,7 +401,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
 - 深度优化：考虑自定义分区器或优化UDF 代码和 JVM 参数。
 - 长尾问题的优化通常是上述多种方法结合使用、反复迭代的过程。核心思想永远是：将集中在一处的计算和存储压力，尽可能地分散到多个并行单元中去。
 
-## 数据倾斜
+### 数据倾斜
 
  **描述:** 数据倾斜诊断规则如下  
    1、任务总耗时>30min  
@@ -446,7 +446,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     end: 0
     threshold: 2
   ```
-  ### 计算公式  
+  #### 计算公式  
   - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
     具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)
   - 举例说明：
@@ -456,7 +456,7 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
     - 如果配置的阈值是3，那么这个stage就会被标记为存在数据倾斜(abnormal)
   - 诊断平台阈值
 
-### 建议优化
+#### 建议优化
 **针对Spark数据倾斜问题，常见的优化方法包括：**  
   - 增加分区数 ：通过 repartition 或 coalesce 增加分区数量，使数据分布更均匀
   - 使用随机前缀 ：对倾斜的key添加随机前缀，分散数据到不同分区
@@ -492,11 +492,11 @@ Dataset<Row> stage1 = dataset.groupBy("key").agg(sum("value"));
 Dataset<Row> stage2 = stage1.groupBy("key").agg(sum("sum(value)"));
  ```
 
-## 大表扫描
+### 大表扫描
 找到对应的表sql，看是否有异常  
 ![alt text](CC0323778B0680E0C11089001CD53F7B.jpg)
 
-## 推测执行过多分析
+### 推测执行过多分析
 **Stage中推测执行任务数超过20个，即可判定为推测执行过多**
 ![alt text](image.png)
 
@@ -521,16 +521,68 @@ spark.speculation.multiplier	3
 spark.speculation.quantile 0.9
 ```
 
-## Job耗时异常分析
+### Job耗时异常分析
 **Job中空闲时间 (job总时间 - stage累计时间) 与总时间的占比超过30.00%%，即判定为Job耗时异常**
 
-## Stage耗时异常分析
+### Stage耗时异常分析
 **Stage空闲时间 (stage运行时间-任务运行时间) 与stage运行时间的占比超过30.0%，即判定为Stage耗时异常**
 
 
-## 基线时间异常
+### 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  
 
+### hdfs卡顿分析
+ **计算Stage中每个任务的处理速率(读取数据量与耗时的比值), 当处理速率的中位值与最小值的比大于10.00,即判定为HDFS卡顿**  
+- task的切分很不均匀，task5只读了一点点的ranger范围，然后dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib之认文件的0-121518116还被task1 和task2重复读
+![alt text](task_split.png)
+```text
+task 1
+25/09/09 11:06:41 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1029/bc_124_merge_1757385248862_0.zlib, range: 0-121518116, partition values: [20250909,1029]
+25/09/09 11:06:41 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib, range: 0-121518116, partition values: [20250909,1044]
+task 2
+25/09/09 11:06:41 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1029/bc_124_merge_1757385248862_0.zlib, range: 0-121518116, partition values: [20250909,1029]
+25/09/09 11:06:41 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib, range: 0-121518116, partition values: [20250909,1044]
+task 3
+25/09/09 11:06:49 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1014/bc_124_merge_1757384348136_0.zlib, range: 0-112774706, partition values: [20250909,1014]
+25/09/09 11:06:49 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1059/bc_124_merge_1757387049011_0.zlib, range: 0-109471027, partition values: [20250909,1059]
+task 4
+25/09/09 11:06:49 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1014/bc_124_merge_1757384348136_0.zlib, range: 0-112774706, partition values: [20250909,1014]
+25/09/09 11:06:49 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1059/bc_124_merge_1757387049011_0.zlib, range: 0-109471027, partition values: [20250909,1059]
+task 5
+25/09/09 11:06:50 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib, range: 121518116-123307681, partition values: [20250909,1044]
+```
+原因是zlib文件压缩是纯压缩,不可切片的,历史原因或更省存储存本会选择纯压缩方式,这种就会造成计算浪费，
+考虑用ORC+ZLIB方式会更优,以下是对比  
+
+| 特性 | 纯Zlib文件 (`.zlib`) | ORC文件 + Zlib压缩 |
+| :--- | :--- | :--- |
+| **本质** | 一个压缩后的字节流。它将原始数据（如文本）直接进行压缩，生成一个紧凑的、不可分割的二进制块。 | 一个结构化的列式数据文件。它先按自己的格式组织数据，**然后**再对其中各部分进行压缩。 |
+| **内容** | 只有压缩后的数据本身。 | **数据 + 丰富的元数据**（Footer, Postscript, Stripe信息, Indexes等）。 |
+| **压缩对象** | 压缩整个文件流。 | 分别压缩不同的部分（例如，对每一列的数据块进行独立压缩）。 |
+| **目标** | **唯一目标：极致压缩**，节省空间。 | **主要目标：高性能查询**。压缩是为了辅助实现这个目标。 |
+
+**简单比喻：**  
+纯Zlib文件 就像你把衣服用真空压缩袋抽成紧紧的一包，非常省空间，但你要找一双袜子就得把整个包打开。  
+ORC+Zlib文件 就像一个带有多个抽屉和标签的衣柜。每个抽屉里的衣服（数据）也被压缩了，但因为你有一个清晰的目录（元数据和索引），你可以直接打开放袜子的那个抽屉，而不必动整个衣柜。这个“衣柜的结构和标签”就是
+##### ORC比纯压缩多出来的空间开销。
+定量估算：会增加多少？  
+很难给出一个精确的数字，因为它取决于数据的特性：  
+数据重复度：如果数据重复度很高，Zlib压缩率会很好，元数据开销占比相对会高一些。  
+数据类型：整形、枚举型数据压缩效果好，字符串压缩效果相对差一些。  
+ORC配置：Stripe的大小（默认64MB）、行索引的间隔等都会影响元数据的大小。  
+一个合理的经验性估计是：ORC + Zlib 相比 纯Zlib，存储空间会增加大约 5% 到 20%。  
+下限 (接近5%)：对于非常大的表，数据体量巨大，丰富的元数据相对于海量的数据主体来说就显得占比很小了。  
+上限 (接近20%或更高)：对于较小的表或宽表（列非常多），元数据（尤其是列统计信息）的占比就会相对较高。  
+**示例计算：**  
+- 假设你的纯Zlib文件是 100 GB。
+- 转换为 ORC + Zlib 后，大小可能在 105 GB 到 120 GB 之间。
+
+**为什么尽管空间变大了，ORC仍然是绝对首选？**
+- 因为你用这一点点额外的空间，换来了数个数量级的查询性能提升：  
+- 可分割（Splittable）：ORC文件可以被切割，允许多个Task并行读取，彻底解决了你最初问题中的负载不均问题。这是最大的好处。
+- 谓词下推（Predicate Pushdown）：Spark可以直接读取ORC文件尾部的统计信息，在真正读数据之前就跳过整个不相关的stripe和行组。例如，查询 WHERE date = '2025-09-09'，Spark只会读取dt=20250909分区下的文件，- 甚至可能只读取这些文件中的几个stripe，而不是全表扫描。
+- 列式读取（Columnar Pruning）：如果你的查询只选择 user_id, name 两列，Spark只会从ORC文件中读取这两列的数据，而不是读取所有列然后丢弃它们。这对于宽表查询性能提升是毁灭性的。
+- 高效的编码：ORC在压缩之前会针对不同类型的数据使用更高效的编码（如Integer的Run-Length Encoding，String的Dictionary Encoding），这有时甚至能比直接Zlib压缩获得更好的压缩比（部分抵消元数据开销）。
 
 
 ## 待补充更多的诊断逻辑分析

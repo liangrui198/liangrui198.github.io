@@ -304,7 +304,6 @@ flowchart TD
 
 ### Task长尾 
  **诊断描述** ：map/reduce task最大运行耗时远大于中位数的任务  
-
 #### 计算方式
 ```java
 // 计算每个task的最大执行时间与中位数的比值
@@ -402,6 +401,23 @@ val finalAggRDD = removedSaltRDD.reduceByKey(_ + _)
 - 通用技巧：尝试增加 Shuffle 分区数 (spark.sql.shuffle.partitions)。
 - 深度优化：考虑自定义分区器或优化UDF 代码和 JVM 参数。
 - 长尾问题的优化通常是上述多种方法结合使用、反复迭代的过程。核心思想永远是：将集中在一处的计算和存储压力，尽可能地分散到多个并行单元中去。
+
+#### task长尾案例
+这里有个运行时长为20.03m，中位只有0.90s  
+![alt text](img/task_01.png)
+spark这里也能明确看出来
+![alt text](img/task_02.png)
+```
+...  
+WHERE   dt = '20250910' and hour >= '13' and hour < '14' 
+...  
+-- sql语法的条件为 hour非分区,分钟分区为hm,这里会扫描20250910全分区的数据，所以只有几秒的task其实是读了非13 14分区的文件，但没有任何数据input,属于浪费资源空跑。  
+
+container日志：  
+25/09/10 15:01:40 INFO FileScanRDD: Reading File path: hdfs://xxcluster01/hive_warehouse/xx.db/tab/dt=20250910/hm=0529/bc_27_merge_1757453497469_0.zlib, range: 268435456-378628974, partition values: [20250910,0529]  
+```
+**解决方案：**  
+和业务确认了hm和hour是对等关系，所以只需要换成hm即可。如果非对等关系，需要其它优化手段  
 
 ### 数据倾斜
 
@@ -553,8 +569,153 @@ task 4
 task 5
 25/09/09 11:06:50 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib, range: 121518116-123307681, partition values: [20250909,1044]
 ```
+#### 根因分析
+
+**文件元数据分析：**
+- 文件格式：ORC + zlib压缩
+- 文件大小：123,307,681字节 (约117MB)
+- HDFS块大小：268,435,456字节 (256MB)
+- 行数：586,304行
+- **关键发现：只有1个Stripe**
+
+**真正原因分析：**
+
+根据ORC文件元数据显示，该文件只包含**1个Stripe**，这是导致Spark任务切分不均匀的根本原因：
+
+1. **ORC文件结构限制**：
+   - ORC文件只有1个Stripe，意味着整个文件在逻辑上是一个不可分割的单元
+   - Spark在读取ORC文件时，**无法在Stripe内部进行切分**，只能以Stripe为最小切分单位
+   - 由于只有1个Stripe，理论上应该只分配给1个Task处理
+
+2. **Spark切分算法异常**：
+   - 正常情况下，1个Stripe应该对应1个Task
+   - 但实际出现了多个Task读取相同范围的异常情况
+   - 这可能是Spark在处理**压缩ORC文件**时的切分算法bug
+
+3. **压缩格式影响**：
+   - zlib压缩使得文件无法按字节位置精确切分
+   - Spark可能错误地计算了文件的可切分边界
+   - 导致多个Task被分配到相同的数据范围
+
+4. **文件大小与Stripe配置不匹配**：
+   - 文件117MB但只有1个Stripe，说明写入时Stripe大小配置过大
+   - 默认ORC Stripe大小通常为64MB，该文件明显超过了这个值
+   - 单个Stripe过大导致无法有效并行处理
+
+#### 优化建议
+
+**针对ORC文件Stripe配置问题的根本解决方案：**
+
+**1. 重新配置ORC Stripe大小（治本方案）**
+```sql
+-- 在写入ORC文件时设置合适的Stripe大小
+SET orc.stripe.size=67108864;  -- 64MB，确保大文件有多个Stripe
+SET orc.compress=ZLIB;         -- 保持zlib压缩
+SET orc.compress.size=262144;  -- 256KB压缩块大小
+
+-- 重新生成文件
+INSERT OVERWRITE TABLE target_table
+SELECT * FROM source_table;
+```
+
+**2. 文件重写优化**
+```scala
+// 使用Spark重写ORC文件，确保合适的Stripe分布
+spark.conf.set("orc.stripe.size", "67108864") // 64MB
+spark.conf.set("orc.compress", "ZLIB")
+
+val df = spark.read.orc("hdfs://path/to/problematic/files")
+df.write
+  .mode("overwrite")
+  .option("orc.stripe.size", "67108864")
+  .orc("hdfs://path/to/optimized/files")
+```
+
+**3. 临时解决方案（治标）**
+```scala
+// 读取后立即重分区，绕过切分问题
+val df = spark.read.orc("hdfs://path/to/files")
+  .repartition(4) // 根据数据量调整分区数
+// 或按业务字段重分区
+val df = spark.read.orc("hdfs://path/to/files")
+  .repartition(col("partition_column"))
+```
+
+**4. 存储格式替代方案**
+```sql
+-- 如果可以改变存储格式，推荐使用Parquet
+SET parquet.compression=snappy;  -- Parquet + Snappy压缩
+SET parquet.block.size=134217728; -- 128MB块大小
+
+CREATE TABLE target_parquet_table
+STORED AS PARQUET
+AS SELECT * FROM source_orc_table;
+```
+
+**5. 监控和验证**
+```scala
+// 检查ORC文件的Stripe信息
+import org.apache.orc.OrcFile
+import org.apache.hadoop.fs.Path
+
+val orcReader = OrcFile.createReader(new Path("hdfs://path/to/file.orc"), 
+  OrcFile.readerOptions(spark.sparkContext.hadoopConfiguration))
+println(s"Stripe count: ${orcReader.getStripes.size()}")
+orcReader.getStripes.asScala.zipWithIndex.foreach { case (stripe, index) =>
+  println(s"Stripe $index: offset=${stripe.getOffset}, length=${stripe.getLength}")
+}
+```
+
 原因是zlib文件压缩是纯压缩,不可切片的,历史原因或更省存储存本会选择纯压缩方式,这种就会造成计算浪费，
-考虑用ORC+ZLIB方式会更优,以下是对比  
+考虑用ORC+ZLIB方式会更优,以下是对比
+
+#### 预防措施
+
+**1. ORC文件写入规范**
+```sql
+-- 建立标准的ORC写入配置
+SET orc.stripe.size=67108864;        -- 64MB Stripe大小
+SET orc.compress=ZLIB;               -- 使用ZLIB压缩
+SET orc.compress.size=262144;        -- 256KB压缩块
+SET orc.create.index=true;           -- 启用索引
+SET orc.row.index.stride=10000;      -- 行索引步长
+```
+
+**2. 文件大小控制策略**
+- **单文件大小**：控制在128MB-512MB之间，确保有2-8个Stripe
+- **Stripe数量**：每个文件至少2个Stripe，最多不超过16个
+- **计算公式**：`文件大小 / Stripe大小 = Stripe数量`
+
+**3. 定期文件健康检查**
+```bash
+#!/bin/bash
+# 检查ORC文件Stripe分布脚本
+for file in $(hdfs dfs -ls /path/to/orc/files/*.orc | awk '{print $8}'); do
+  echo "Checking file: $file"
+  java -jar orc-tools.jar meta $file | grep "Stripe [0-9]"
+done
+```
+
+**4. 监控告警机制**
+- **任务执行时间监控**：设置Task执行时间差异超过3倍的告警
+- **文件Stripe监控**：定期检查单Stripe文件占比，超过5%触发告警
+- **切分效率监控**：监控文件切分后的并行度，低于预期时告警
+
+**5. 开发测试规范**
+```scala
+// 在开发环境验证文件切分效果
+def validateOrcFileSplitting(path: String): Unit = {
+  val df = spark.read.orc(path)
+  val partitionCount = df.rdd.getNumPartitions
+  val fileCount = df.inputFiles.length
+  
+  println(s"Files: $fileCount, Partitions: $partitionCount")
+  println(s"Partition ratio: ${partitionCount.toDouble / fileCount}")
+  
+  // 理想情况：分区数应该大于等于文件数
+  assert(partitionCount >= fileCount, "Poor file splitting detected!")
+}
+```  
 
 | 特性 | 纯Zlib文件 (`.zlib`) | ORC文件 + Zlib压缩 |
 | :--- | :--- | :--- |

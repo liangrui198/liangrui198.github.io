@@ -417,7 +417,22 @@ container日志：
 25/09/10 15:01:40 INFO FileScanRDD: Reading File path: hdfs://xxcluster01/hive_warehouse/xx.db/tab/dt=20250910/hm=0529/bc_27_merge_1757453497469_0.zlib, range: 268435456-378628974, partition values: [20250910,0529]  
 ```
 **解决方案：**  
-和业务确认了hm和hour是对等关系，所以只需要换成hm即可。如果非对等关系，需要其它优化手段  
+1: 和业务确认了hm和hour是对等关系，所以只需要换成hm即可。如果非对等关系，需要其它优化手段    
+2: 这里对原数据重新分区，避免底层数据倾斜,这里没有指定分区数，避免最小改动原则，会用全局统计配置是500(spark.sql.shuffle.partitions=500)，业务可以根据自已的数据量合理的设置，例：/*+ REPARTITION(200) */  
+```
+SELECT   /*+ REPARTITION */
+ col1,col2.... from tab
+```
+3：显式缓存表 有多次重复查询,例：
+```
+CACHE TABLE details_data OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM details_data_view;
+```  
+**优化效果**
+- 原任务45分左右，优化后6分左右跑完
+- 内存时优化前1053474.5	优化后：249052.08 
+- 优化后的task对比 原task严重倾斜，优化后可以平均处理input shuufle数据     
+![alt text](img/image-4.png) 
+
 
 ### 数据倾斜
 
@@ -573,14 +588,13 @@ task 5
 ```
 #### 原因分析
 
-**文件元数据分析：**
 - 文件格式：ORC + zlib压缩
 - 文件大小：123,307,681字节 (约117MB)
 - HDFS块大小：268,435,456字节 (256MB)
 - 行数：586,304行
 - **这里省略一大堆的调试分析....**
 
-**真正原因分析：**
+**真正原因：**
 - 造成task返回null值的原因是原始文件数据倾斜，切到文件末尾最后一点是空行数据， spark QAE主要是在shuufle join中进行重新分区优化，对于原始数据倾斜是没有效果的。
 - spark切块逻辑，按切块来分区进行task
 ```text
@@ -605,8 +619,8 @@ minPartitionNum=leafNodeDefaultParallelism -> spark.default.parallelism= -> (exe
 	
 defaultMaxSplitBytes:256MB
 Math.min(256MB, Math.max(4096, 121518116))
-
 ```
+
 - 最终spark日志输出为：range: 0-121518116  
 
 **优化方案**

@@ -569,38 +569,29 @@ task 4
 task 5
 25/09/09 11:06:50 INFO FileScanRDD: Reading File path: hdfs://yycluster01/hive_warehouse/hiidodw.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib, range: 121518116-123307681, partition values: [20250909,1044]
 ```
-#### 根因分析
+#### 原因分析
 
 **文件元数据分析：**
 - 文件格式：ORC + zlib压缩
 - 文件大小：123,307,681字节 (约117MB)
 - HDFS块大小：268,435,456字节 (256MB)
 - 行数：586,304行
-- **关键发现：只有1个Stripe**
+- **这里省略一大堆的调试分析....**
 
 **真正原因分析：**
-
-根据ORC文件元数据显示，该文件只包含**1个Stripe**，这是导致Spark任务切分不均匀的根本原因：
-
-1. **ORC文件结构限制**：
-   - ORC文件只有1个Stripe，意味着整个文件在逻辑上是一个不可分割的单元
-   - Spark在读取ORC文件时，**无法在Stripe内部进行切分**，只能以Stripe为最小切分单位
-   - 由于只有1个Stripe，理论上应该只分配给1个Task处理
-
-2. **Spark切分算法异常**：
-   - 正常情况下，1个Stripe应该对应1个Task
-   - 但实际出现了多个Task读取相同范围的异常情况
-   - 这可能是Spark在处理**压缩ORC文件**时的切分算法bug
-
-3. **压缩格式影响**：
-   - zlib压缩使得文件无法按字节位置精确切分
-   - Spark可能错误地计算了文件的可切分边界
-   - 导致多个Task被分配到相同的数据范围
-
-4. **文件大小与Stripe配置不匹配**：
-   - 文件117MB但只有1个Stripe，说明写入时Stripe大小配置过大
-   - 默认ORC Stripe大小通常为64MB，该文件明显超过了这个值
-   - 单个Stripe过大导致无法有效并行处理
+- 造成task返回null值的原因是原始文件数据倾斜，切到文件末尾最后一点是空行数据， spark QAE主要是在shuufle join中进行重新分区优化，对于原始数据倾斜是没有效果的。
+例： 
+```sql
+select c1,c2...各种列组合转换 from tab where dt=xx ..
+group by cl,c2...;
+-- 优化后 对原始表进行重分区，/*+ REPARTITION(12) */ 是一个明确的优化器提示，告诉 Spark 必须将数据重新分区为 12 个分区
+-- 小提示.慎用这个：DISTRIBUTE BY CAST(rand() * 24 AS INT) 是一个逻辑表达式，Spark 的优化器可能会对其进行优化或重写
+create temporary table tmp_tab  as
+select  select /*+ REPARTITION(24) */
+* from tab where dt=xx ..;
+select c1,c2...各种列组合转换 from tmp_tab where dt=xx ..
+group by cl,c2...;
+```
 
 #### 优化建议
 

@@ -551,7 +551,8 @@ spark.speculation.quantile 0.9
 
 ### hdfs卡顿分析  
  **计算Stage中每个任务的处理速率(读取数据量与耗时的比值), 当处理速率的中位值与最小值的比大于10.00,即判定为HDFS卡顿**  
-- task的切分很不均匀，task5只读了一点点的ranger范围，然后dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib之认文件的0-121518116还被task1 和task2重复读
+
+spark日志 有些task共用一个executor,日志会输出在一个文件中
 ![alt text](task_split.png)
 ```text
 task 1
@@ -580,6 +581,34 @@ task 5
 
 **真正原因分析：**
 - 造成task返回null值的原因是原始文件数据倾斜，切到文件末尾最后一点是空行数据， spark QAE主要是在shuufle join中进行重新分区优化，对于原始数据倾斜是没有效果的。
+- spark切块逻辑，按切块来分区进行task
+```text
+20250910  10点分区文件
+hdfs dfs -du    hdfs://yycluster01/hive_warehouse/xx.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=10*
+112774706  338324118  hdfs://yycluster01/hive_warehouse/xx.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1014/bc_124_merge_1757384348136_0.zlib
+123741835  371225505  hdfs://yycluster01/hive_warehouse/xx.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1029/bc_124_merge_1757385248862_0.zlib
+123307681  369923043  hdfs://yycluster01/hive_warehouse/xx.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1044/bc_124_merge_1757386148166_0.zlib
+109471027  328413081  hdfs://yycluster01/hive_warehouse/xx.db/yy_lpfplayerfirstaccess_original/dt=20250909/hm=1059/bc_124_merge_1757387049011_0.zlib
+
+minPartitionNum=leafNodeDefaultParallelism -> spark.default.parallelism= -> (execoutor * core) -> 4
+469295249+4194304*4=486072465
+520249602/4=121518116.25
+
+    val defaultMaxSplitBytes = sparkSession.sessionState.conf.filesMaxPartitionBytes
+    val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
+    val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
+      .getOrElse(sparkSession.leafNodeDefaultParallelism)
+    val totalBytes = selectedPartitions.flatMap(_.files.map(_.getLen + openCostInBytes)).sum
+    val bytesPerCore = totalBytes / minPartitionNum
+    Math.min(defaultMaxSplitBytes, Math.max(openCostInBytes, bytesPerCore))
+	
+defaultMaxSplitBytes:256MB
+Math.min(256MB, Math.max(4096, 121518116))
+
+```
+- 最终spark日志输出为：range: 0-121518116  
+
+**优化方案**
 例： 
 ```sql
 select c1,c2...各种列组合转换 from tab where dt=xx ..
@@ -593,153 +622,10 @@ select c1,c2...各种列组合转换 from tmp_tab where dt=xx ..
 group by cl,c2...;
 ```
 
-#### 优化建议
+**效果**
+- 没有优化前，task只有5个，其中一个是空值，input数据也相关很大，优化后3.6 MiB / 19516	数据很平均，分区数需要根据自已数据量来调整
+![alt text](img/task_03.png)
 
-**针对ORC文件Stripe配置问题的根本解决方案：**
-
-**1. 重新配置ORC Stripe大小（治本方案）**
-```sql
--- 在写入ORC文件时设置合适的Stripe大小
-SET orc.stripe.size=67108864;  -- 64MB，确保大文件有多个Stripe
-SET orc.compress=ZLIB;         -- 保持zlib压缩
-SET orc.compress.size=262144;  -- 256KB压缩块大小
-
--- 重新生成文件
-INSERT OVERWRITE TABLE target_table
-SELECT * FROM source_table;
-```
-
-**2. 文件重写优化**
-```scala
-// 使用Spark重写ORC文件，确保合适的Stripe分布
-spark.conf.set("orc.stripe.size", "67108864") // 64MB
-spark.conf.set("orc.compress", "ZLIB")
-
-val df = spark.read.orc("hdfs://path/to/problematic/files")
-df.write
-  .mode("overwrite")
-  .option("orc.stripe.size", "67108864")
-  .orc("hdfs://path/to/optimized/files")
-```
-
-**3. 临时解决方案（治标）**
-```scala
-// 读取后立即重分区，绕过切分问题
-val df = spark.read.orc("hdfs://path/to/files")
-  .repartition(4) // 根据数据量调整分区数
-// 或按业务字段重分区
-val df = spark.read.orc("hdfs://path/to/files")
-  .repartition(col("partition_column"))
-```
-
-**4. 存储格式替代方案**
-```sql
--- 如果可以改变存储格式，推荐使用Parquet
-SET parquet.compression=snappy;  -- Parquet + Snappy压缩
-SET parquet.block.size=134217728; -- 128MB块大小
-
-CREATE TABLE target_parquet_table
-STORED AS PARQUET
-AS SELECT * FROM source_orc_table;
-```
-
-**5. 监控和验证**
-```scala
-// 检查ORC文件的Stripe信息
-import org.apache.orc.OrcFile
-import org.apache.hadoop.fs.Path
-
-val orcReader = OrcFile.createReader(new Path("hdfs://path/to/file.orc"), 
-  OrcFile.readerOptions(spark.sparkContext.hadoopConfiguration))
-println(s"Stripe count: ${orcReader.getStripes.size()}")
-orcReader.getStripes.asScala.zipWithIndex.foreach { case (stripe, index) =>
-  println(s"Stripe $index: offset=${stripe.getOffset}, length=${stripe.getLength}")
-}
-```
-
-原因是zlib文件压缩是纯压缩,不可切片的,历史原因或更省存储存本会选择纯压缩方式,这种就会造成计算浪费，
-考虑用ORC+ZLIB方式会更优,以下是对比
-
-#### 预防措施
-
-**1. ORC文件写入规范**
-```sql
--- 建立标准的ORC写入配置
-SET orc.stripe.size=67108864;        -- 64MB Stripe大小
-SET orc.compress=ZLIB;               -- 使用ZLIB压缩
-SET orc.compress.size=262144;        -- 256KB压缩块
-SET orc.create.index=true;           -- 启用索引
-SET orc.row.index.stride=10000;      -- 行索引步长
-```
-
-**2. 文件大小控制策略**
-- **单文件大小**：控制在128MB-512MB之间，确保有2-8个Stripe
-- **Stripe数量**：每个文件至少2个Stripe，最多不超过16个
-- **计算公式**：`文件大小 / Stripe大小 = Stripe数量`
-
-**3. 定期文件健康检查**
-```bash
-#!/bin/bash
-# 检查ORC文件Stripe分布脚本
-for file in $(hdfs dfs -ls /path/to/orc/files/*.orc | awk '{print $8}'); do
-  echo "Checking file: $file"
-  java -jar orc-tools.jar meta $file | grep "Stripe [0-9]"
-done
-```
-
-**4. 监控告警机制**
-- **任务执行时间监控**：设置Task执行时间差异超过3倍的告警
-- **文件Stripe监控**：定期检查单Stripe文件占比，超过5%触发告警
-- **切分效率监控**：监控文件切分后的并行度，低于预期时告警
-
-**5. 开发测试规范**
-```scala
-// 在开发环境验证文件切分效果
-def validateOrcFileSplitting(path: String): Unit = {
-  val df = spark.read.orc(path)
-  val partitionCount = df.rdd.getNumPartitions
-  val fileCount = df.inputFiles.length
-  
-  println(s"Files: $fileCount, Partitions: $partitionCount")
-  println(s"Partition ratio: ${partitionCount.toDouble / fileCount}")
-  
-  // 理想情况：分区数应该大于等于文件数
-  assert(partitionCount >= fileCount, "Poor file splitting detected!")
-}
-```  
-
-| 特性 | 纯Zlib文件 (`.zlib`) | ORC文件 + Zlib压缩 |
-| :--- | :--- | :--- |
-| **本质** | 一个压缩后的字节流。它将原始数据（如文本）直接进行压缩，生成一个紧凑的、不可分割的二进制块。 | 一个结构化的列式数据文件。它先按自己的格式组织数据，**然后**再对其中各部分进行压缩。 |
-| **内容** | 只有压缩后的数据本身。 | **数据 + 丰富的元数据**（Footer, Postscript, Stripe信息, Indexes等）。 |
-| **压缩对象** | 压缩整个文件流。 | 分别压缩不同的部分（例如，对每一列的数据块进行独立压缩）。 |
-| **目标** | **唯一目标：极致压缩**，节省空间。 | **主要目标：高性能查询**。压缩是为了辅助实现这个目标。 |
-
-**简单比喻：**  
-纯Zlib文件 就像你把衣服用真空压缩袋抽成紧紧的一包，非常省空间，但你要找一双袜子就得把整个包打开。  
-ORC+Zlib文件 就像一个带有多个抽屉和标签的衣柜。每个抽屉里的衣服（数据）也被压缩了，但因为你有一个清晰的目录（元数据和索引），你可以直接打开放袜子的那个抽屉，而不必动整个衣柜。这个“衣柜的结构和标签”就是
-##### ORC比纯压缩多出来的空间开销。
-定量估算：会增加多少？  
-很难给出一个精确的数字，因为它取决于数据的特性：  
-数据重复度：如果数据重复度很高，Zlib压缩率会很好，元数据开销占比相对会高一些。  
-数据类型：整形、枚举型数据压缩效果好，字符串压缩效果相对差一些。  
-ORC配置：Stripe的大小（默认64MB）、行索引的间隔等都会影响元数据的大小。  
-一个合理的经验性估计是：ORC + Zlib 相比 纯Zlib，存储空间会增加大约 5% 到 20%。  
-下限 (接近5%)：对于非常大的表，数据体量巨大，丰富的元数据相对于海量的数据主体来说就显得占比很小了。  
-上限 (接近20%或更高)：对于较小的表或宽表（列非常多），元数据（尤其是列统计信息）的占比就会相对较高。  
-**示例计算：**  
-- 假设你的纯Zlib文件是 100 GB。
-- 转换为 ORC + Zlib 后，大小可能在 105 GB 到 120 GB 之间。
-
-**为什么尽管空间变大了，ORC仍然是绝对首选？**
-- 因为你用这一点点额外的空间，换来了数个数量级的查询性能提升：  
-- 可分割（Splittable）：ORC文件可以被切割，允许多个Task并行读取，彻底解决了你最初问题中的负载不均问题。这是最大的好处。
-- 谓词下推（Predicate Pushdown）：Spark可以直接读取ORC文件尾部的统计信息，在真正读数据之前就跳过整个不相关的stripe和行组。例如，查询 WHERE date = '2025-09-09'，Spark只会读取dt=20250909分区下的文件，- 甚至可能只读取这些文件中的几个stripe，而不是全表扫描，2者都受益。  
-  - 第一道关卡（分区剪枝）：Zlib和ORC都能受益。跳过整个不相干的分区目录。
-  - 第二道关卡（Stripe剪枝）：只有ORC等列式格式能受益。在一个分区目录内部，跳过不相干的Stripe/行组。
-
-- 列式读取（Columnar Pruning）：如果你的查询只选择 user_id, name 两列，Spark只会从ORC文件中读取这两列的数据，而不是读取所有列然后丢弃它们。这对于宽表查询性能提升是毁灭性的。
-- 高效的编码：ORC在压缩之前会针对不同类型的数据使用更高效的编码（如Integer的Run-Length Encoding，String的Dictionary Encoding），这有时甚至能比直接Zlib压缩获得更好的压缩比（部分抵消元数据开销）。
 
 
 

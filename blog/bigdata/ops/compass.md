@@ -551,6 +551,7 @@ spark.speculation.quantile 0.9
 
 ### hdfs卡顿分析  
  **计算Stage中每个任务的处理速率(读取数据量与耗时的比值), 当处理速率的中位值与最小值的比大于10.00,即判定为HDFS卡顿**  
+ - 这个看起就是task长尾，但计算结果和这个差不多一样的问题，读相关很大是文件切片问题
 
 spark日志 有些task共用一个executor,日志会输出在一个文件中
 ![alt text](task_split.png)

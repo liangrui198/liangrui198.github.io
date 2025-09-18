@@ -433,6 +433,30 @@ CACHE TABLE details_data OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM
 - 优化后的task对比 原task严重倾斜，优化后可以平均处理input shuufle数据     
 ![alt text](img/image-4.png) 
 
+#### task长尾案例2
+- compass 上看出时间相差很多，显示task长尾巴问题
+![alt text](image-7.png)
+- 通过spark sql执行计化找出时间最大的stage,
+![alt text](7D8A8DE6BAABC6139FDF9AD7700287B2.jpg)
+通过执行计化已经很明显看出是AQE分区coalesced了：number of coalesced partitions: 4  
+再关联性找到sql执行片段
+![alt text](image-8.png)
+- 优化问题
+  - 1：手动分区，避免AQE coalesced
+  - 2：coalesce 不会谓词下推（Predicate Pushdown），导致会多读出很多数据
+![alt text](8BDBE81DACFB6C1DB9202C173396B1BD.jpg)
+```sql
+-- hdid is not null and hdid != '' 写法生成的执行计化
+PushedFilters: [In(mtr_src_type, [三方,官方]), IsNotNull(hdid), Not(EqualTo(hdid,))]
+
+-- coalesce(hdid, '') <> ''  写法的执行计化
+[In(mtr_src_type, [三方,官方])]
+
+-- 这里已经很明确的看出orc文件不知道coalesce是啥玩意，就会把hdid全部数据提出来，你自已去coalesce过滤，性能差
+```
+优化前后对比，优化前1小时左右，优化后21分钟跑完  
+![alt text](image-10.png)
+![alt text](image-9.png)
 
 ### 数据倾斜
 
@@ -479,7 +503,8 @@ CACHE TABLE details_data OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM
     end: 0
     threshold: 2
   ```
-  #### 计算公式  
+#### 计算公式    
+
   - Spark数据倾斜的计算公式主要是通过比较每个stage中task的shuffle read数据量的最大值(max)和中位数(median)的比值来判断。  
     具体公式为：数据倾斜比例 = max(shuffle_read) / median(shuffle_read)
   - 举例说明：
@@ -602,7 +627,7 @@ CACHE TABLE data_source1 OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM
 -- n 为指定分区数
 /*+repartition(n) */
 ```
-- 优化后从正常的13分钟变为6分钟，周时也会消除晚上高峰期被资源抢占导致重算的风险，重算后时间会在20-30分钟上。
+- 优化后从正常的sql逻辑执行也会变短一些，周时也会消除晚上高峰期被资源抢占导致重算的风险，重算后时间会在20-30分钟上。
 ![alt text](image-5.png)
 ![alt text](image-6.png)
 

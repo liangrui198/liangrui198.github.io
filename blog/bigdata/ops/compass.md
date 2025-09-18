@@ -434,7 +434,7 @@ CACHE TABLE details_data OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM
 ![alt text](img/image-4.png) 
 
 #### task长尾案例2
-- compass 上看出时间相差很多，显示task长尾巴问题
+- compass 上看出时间相差很多，显示task长尾问题
 ![alt text](image-7.png)
 - 通过spark sql执行计化找出时间最大的stage,  
 ![alt text](7D8A8DE6BAABC6139FDF9AD7700287B2.jpg)
@@ -444,7 +444,8 @@ CACHE TABLE details_data OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM
 - 优化问题
   - 1：手动分区，避免AQE coalesced
   - 2：coalesce 不会谓词下推（Predicate Pushdown），导致会多读出很多数据
-![alt text](8BDBE81DACFB6C1DB9202C173396B1BD.jpg)
+![alt text](8BDBE81DACFB6C1DB9202C173396B1BD.jpg)   
+
 ```sql
 -- hdid is not null and hdid != '' 写法生成的执行计化
 PushedFilters: [In(mtr_src_type, [三方,官方]), IsNotNull(hdid), Not(EqualTo(hdid,))]
@@ -453,8 +454,10 @@ PushedFilters: [In(mtr_src_type, [三方,官方]), IsNotNull(hdid), Not(EqualTo(
 [In(mtr_src_type, [三方,官方])]
 
 -- 这里已经很明确的看出orc文件不知道coalesce是啥玩意，就会把hdid全部数据提出来，你自已去coalesce过滤，性能差
+
 ```
-优化前后对比，优化前1小时左右，优化后21分钟跑完  
+
+- 优化前后对比，优化前1小时左右，优化后21分钟跑完   
 ![alt text](image-10.png)
 ![alt text](image-9.png)
 

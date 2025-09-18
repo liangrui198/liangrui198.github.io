@@ -436,10 +436,10 @@ CACHE TABLE details_data OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM
 #### task长尾案例2
 - compass 上看出时间相差很多，显示task长尾巴问题
 ![alt text](image-7.png)
-- 通过spark sql执行计化找出时间最大的stage,
+- 通过spark sql执行计化找出时间最大的stage,  
 ![alt text](7D8A8DE6BAABC6139FDF9AD7700287B2.jpg)
 通过执行计化已经很明显看出是AQE分区coalesced了：number of coalesced partitions: 4  
-再关联性找到sql执行片段
+再关联性找到sql执行片段  
 ![alt text](image-8.png)
 - 优化问题
   - 1：手动分区，避免AQE coalesced

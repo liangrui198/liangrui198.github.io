@@ -554,12 +554,57 @@ spark.speculation.multiplier	3
 spark.speculation.quantile 0.9
 ```
 
-### Job耗时异常分析
-**Job中空闲时间 (job总时间 - stage累计时间) 与总时间的占比超过30.00%%，即判定为Job耗时异常**
+
 
 ### Stage耗时异常分析
 **Stage空闲时间 (stage运行时间-任务运行时间) 与stage运行时间的占比超过30.0%，即判定为Stage耗时异常**
+#### 案列解析
+- job[1].stage[1]空闲时间与该Stage总时间的占比为：30.59%，超过阈值30.0，该stage耗时异常。请及时关注平台运行状态。
+- 观察到发生stage空闲时间异常时，对应的spark显示有was preempted异常，是触发了资源抢占
+- 目前集群为capacity scheduler,有最低资源和预分配置弹性使用，发果占用了集群弹性资源，其它业务需要最低保证资源时，就会触发收回弹性资源部分。
+![alt text](img/image-8.png)
 
+- 同时还被诊断有task长尾，主要是数据分区不均衡，部分task会有内存溢出,日志如下
+```
+java.lang.OutOfMemoryError: Java heap space
+Dumping heap to /data3/hadoop/yarn/logs/application_1755049813097_2317447/container_e256_1755049813097_2317447_01_000011/executor_dump.out ...
+Heap dump file created [8192319570 bytes in 11.452 secs]
+#
+# java.lang.OutOfMemoryError: Java heap space
+# -XX:OnOutOfMemoryError="kill %p"
+#   Executing /bin/sh -c "kill 6326"...
+25/09/17 04:53:40 WARN TransportChannelHandler: Exception in connection from /10.12.8.90:52636
+java.lang.OutOfMemoryError: Java heap space
+	at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+	at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+	at org.apache.spark.serializer.SerializerManager.$anonfun$dataSerializeWithExplicitClassTag$1(SerializerManager.scala:192)
+```
+**解决方案**
+发现这里有大量的cache，使用大量内存，：
+- sql写法去掉不必要的cache,有些表只用了一次，没必要加cache
+```sql
+cache a as(...); -- cache会触发计算，并占用executor资源
+-- 这里省略大片sql逻辑
+select * from b
+left join a on b.id=a.id;  -- 再次从cache了数据，如果没有drop cahce，不会主动释放cache的executor资源
+-- 优化后
+create temporary view a as(...);  --不会触发action,不会占用资源
+-- 这里省略大片sql逻辑
+select * from b
+left join a on b.id=a.id;   --这里才会触发action算子进行计算
+```
+- 调 有多次重复查询的表,为磁盘cache。例：
+```
+CACHE TABLE data_source1 OPTIONS ('storageLevel' = 'DISK_ONLY') AS SELECT * FROM data_source1_view;
+```
+-- 手动对源表进行分区
+```
+-- n 为指定分区数
+/*+repartition(n) */
+```
+- 优化后从正常的13分钟变为6分钟，周时也会消除晚上高峰期被资源抢占导致重算的风险，重算后时间会在20-30分钟上。
+![alt text](image-5.png)
+![alt text](image-6.png)
 
 ### 基线时间异常
 相对于历史正常结束时间，提前结束或晚点结束的任务  
@@ -641,6 +686,8 @@ group by cl,c2...;
 - 没有优化前，task只有5个，其中一个是空值，input数据也相关很大，优化后3.6 MiB / 19516	数据很平均，分区数需要根据自已数据量来调整
 ![alt text](img/task_03.png)
 
+### Job耗时异常分析
+**Job中空闲时间 (job总时间 - stage累计时间) 与总时间的占比超过30.00%%，即判定为Job耗时异常**
 
 
 

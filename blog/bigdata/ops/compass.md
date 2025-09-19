@@ -461,6 +461,50 @@ PushedFilters: [In(mtr_src_type, [三方,官方])]
 ![alt text](image-9.png)
 
 #### task长尾案例3
+1： 这里显示job[17].stage[18].task[2423]运行耗时48.22s 中位值为0.08s  
+![alt text](image-12.png)
+- 查看对应的sql执行计化，这里发现read的时候源表只一个2k左右的文件，确实是一个分区
+![alt text](image-13.png)
+- 找到对应的sql执行段，这里union后面的表的时候,有个group by,这时候会触发shuufle重分区进行去重，会按当前默认500分区进行切，但对于kb几倍的切500分区，是浪费的，需要手动分区
+![alt text](image-14.png)
+
+2： job[26].stage[34].task[4911]运行耗时1.98m 中位值为1.25s  
+- 找到执行计划和对应的sql，这种写法没能谓词下推，从执行计化图中可以明显示看出,有68,360,440条数据被ColumnarToRow 进行fliter
+![alt text](image-15.png)
+![alt text](image-16.png)
+```sql
+-- 这里明显是没有进行 PushedFilters 
+(104) Scan orc pub_dw.pub_dwv_live_view_btype_view_dr_di
+Output [8]: [live_prod_name#9455, aid#9459L, uid#9466L, suid#9467, view_prod_name#9468, view_dr#9476, bste_act_type#9479, dt#9490]
+Batched: true
+Location: InMemoryFileIndex [hdfs://yycluster02/hive_warehouse/pub_dw.db/pub_dwv_live_view_btype_view_dr_di/dt=2025-09-18]
+PartitionFilters: [isnotnull(dt#9490), (dt#9490 = 2025-09-18)]
+PushedFilters: [IsNotNull(bste_act_type), EqualTo(bste_act_type,0)]
+ReadSchema: struct<live_prod_name:string,aid:bigint,uid:bigint,suid:string,view_prod_name:string,view_dr:int,bste_act_type:int>
+
+SET spark.sql.parameter.live_prod_list = 
+  CASE WHEN '${date:y-m-d}' < '2022-04-06' 
+       THEN '"YY","bdgame","sdk_voiceroom"' 
+       ELSE '"YY","bdsdk","sdk_voiceroom"' 
+  END;
+
+-- and a.live_prod_name in ('YY',if(a.dt < '2022-04-06','bdgame','bdsdk'),'sdk_voiceroom')
+AND a.live_prod_name IN (${spark.sql.parameter.live_prod_list})
+
+-- 优化后的执行计化，成功谓词下推
+(107) Scan orc pub_dw.pub_dwv_live_view_btype_view_dr_di
+Output [8]: [live_prod_name#9467, aid#9471L, uid#9478L, suid#9479, view_prod_name#9480, view_dr#9488, bste_act_type#9491, dt#9502]
+Batched: true
+Location: InMemoryFileIndex [hdfs://yycluster02/hive_warehouse/pub_dw.db/pub_dwv_live_view_btype_view_dr_di/dt=2025-09-18]
+PartitionFilters: [isnotnull(dt#9502), (dt#9502 = 2025-09-18)]
+PushedFilters: [IsNotNull(live_prod_name), IsNotNull(bste_act_type), EqualTo(live_prod_name,"YY","bdsdk","sdk_voiceroom"), EqualTo(bste_act_type,0)]
+ReadSchema: struct<live_prod_name:string,aid:bigint,uid:bigint,suid:string,view_prod_name:string,view_dr:int,bste_act_type:int>
+
+```
+- 优化后时间对比 43 vs 11
+![alt text](image-17.png)
+
+#### task长尾案例4
 - task 2212 7分钟，output和shuufle数据量还小
 - task 2211 5分钟， output和shuufle数据量大，但时间还快。这不正常 
 ![alt text](image-11.png)  

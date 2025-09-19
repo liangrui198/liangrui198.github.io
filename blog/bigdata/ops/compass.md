@@ -462,12 +462,11 @@ PushedFilters: [In(mtr_src_type, [三方,官方])]
 
 #### task长尾案例3
 - task 2212 7分钟，output和shuufle数据量还小
-- task 2211 5分钟， output和shuufle数据量大，但时间还快。这不正常
-![alt text](image-11.png)
-spark 写入的2个task文件
+- task 2211 5分钟， output和shuufle数据量大，但时间还快。这不正常 
+![alt text](image-11.png)  
+spark 写入的2个task文件  
 ```46.3 M  138.8 M  hdfs://xx/hive_warehouse/xx.db/livevip_dws_entity_eqmt_mtr_mall_stat_180d_di/dt=2025-09-18/part-00000-c407b8f4-c9be-462f-90dd-2e32ba9a6df1-c000
 46.3 M  138.9 M  hdfs://xx/hive_warehouse/xx.db/livevip_dws_entity_eqmt_mtr_mall_stat_180d_di/dt=2025-09-18/part-00001-c407b8f4-c9be-462f-90dd-2e32ba9a6df1-c000
-
 
 10.12.68.133 task 快 spark task 2 写入
 57:10-52:06=5:04

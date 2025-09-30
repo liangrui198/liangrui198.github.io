@@ -465,7 +465,8 @@ PushedFilters: [In(mtr_src_type, [三方,官方])]
 ![alt text](image-12.png)
 - 查看对应的sql执行计化，这里发现read的时候源表只一个2k左右的文件，确实是一个分区
 ![alt text](image-13.png)
-- 找到对应的sql执行段，这里union后面的表的时候,有个group by,这时候会触发shuufle重分区进行去重，会按当前默认500分区进行切，但对于kb几倍的切500分区，是浪费的，需要手动分区
+- 找到对应的sql执行段，这里union后面的表的时候,有个group by,这时候会触发shuufle重分区进行去重，会按当前默认500分区进行切，但对于kb几倍的切500分区，是浪费的，需要手动分区 
+```select  /*+ REPARTITION(1) */ ...```
 ![alt text](image-14.png)
 
 2： job[26].stage[34].task[4911]运行耗时1.98m 中位值为1.25s  
@@ -482,25 +483,48 @@ PartitionFilters: [isnotnull(dt#9490), (dt#9490 = 2025-09-18)]
 PushedFilters: [IsNotNull(bste_act_type), EqualTo(bste_act_type,0)]
 ReadSchema: struct<live_prod_name:string,aid:bigint,uid:bigint,suid:string,view_prod_name:string,view_dr:int,bste_act_type:int>
 
-SET spark.sql.parameter.live_prod_list = 
-  CASE WHEN '${date:y-m-d}' < '2022-04-06' 
-       THEN '"YY","bdgame","sdk_voiceroom"' 
-       ELSE '"YY","bdsdk","sdk_voiceroom"' 
-  END;
+ -- 优化sql写法
+
+
 
 -- and a.live_prod_name in ('YY',if(a.dt < '2022-04-06','bdgame','bdsdk'),'sdk_voiceroom')
-AND a.live_prod_name IN (${spark.sql.parameter.live_prod_list})
+  AND (
+    -- 替代 live_prod_name IN 的动态逻辑
+    a.live_prod_name = 'YY'
+    OR a.live_prod_name = 'sdk_voiceroom'
+    OR (
+      a.dt < '2022-04-06' AND a.live_prod_name = 'bdgame'
+    )
+    OR (
+      a.dt >= '2022-04-06' AND a.live_prod_name = 'bdsdk'
+    )
+  )
 
--- 优化后的执行计化，成功谓词下推
+
+
+-- 优化后的执行计化，live_prod_name成功谓词下推,
 (107) Scan orc pub_dw.pub_dwv_live_view_btype_view_dr_di
 Output [8]: [live_prod_name#9467, aid#9471L, uid#9478L, suid#9479, view_prod_name#9480, view_dr#9488, bste_act_type#9491, dt#9502]
 Batched: true
 Location: InMemoryFileIndex [hdfs://yycluster02/hive_warehouse/pub_dw.db/pub_dwv_live_view_btype_view_dr_di/dt=2025-09-18]
 PartitionFilters: [isnotnull(dt#9502), (dt#9502 = 2025-09-18)]
-PushedFilters: [IsNotNull(live_prod_name), IsNotNull(bste_act_type), EqualTo(live_prod_name,"YY","bdsdk","sdk_voiceroom"), EqualTo(bste_act_type,0)]
+PushedFilters: [IsNotNull(bste_act_type), Or(Or(EqualTo(live_prod_name,YY),EqualTo(live_prod_name,sdk_voiceroom)),Or(EqualTo(live_prod_name,bdgame),EqualTo(live_prod_name,bdsdk))), EqualTo(bste_act_type,0)]
+
 ReadSchema: struct<live_prod_name:string,aid:bigint,uid:bigint,suid:string,view_prod_name:string,view_dr:int,bste_act_type:int>
 
 ```
+and (include('SDK_PROD',a.view_prod_name) = 1or a.view_prod_name = 'bdbaizhan')  
+这种因为使用了UDF函数，也不能谓词下推，从执行计化里可以看到有(output rows-filter=68,360,440)条数据被ColumnarToRow，UDF逻辑只有业务清楚，如果需要更优化的性能，需要业务进行先 view_prod_name in(xx,xx)再进行udf转换过滤。  
+**UDF使用提示：**
+黑盒设计：UDF的设计初衷是为了允许用户扩展Spark的功能，但从Spark的角度来看，UDF是一个黑盒。Spark引擎无法理解UDF内部的计算逻辑，也就无法进行深入的优化。  
+无法利用Spark的内部优化：:UDF在Spark看来是一个黑盒，它无法理解UDF内部的计算逻辑，因此无法对UDF进行如代码优化、向量化等操作，从而错失了利用Spark引擎的优化能力。  
+**替代方案：**
+为了克服这些缺陷，可以考虑使用以下方案：  
+* 使用Spark 内置函数：优先使用Spark提供的内置函数，它们通常已经经过高度优化，性能远高于UDF。  
+* 使用Scala/Java UDF：如果必须自定义函数，可以优先使用Scala或Java编写的UDF，因为它们不需要进行跨语言的序列化/反序列化，性能会好很多。  
+* 使用Pandas UDF(Vectorized UDF)：对于Python UDF，可以使用Pandas UDF，它以Apache Arrow为基础，将数据打包成Pandas Series/DataFrame，然后一次性进行处理，避免了行级别的序列化和反序列化开销，性能有所提升。  
+
+
 - 优化后时间对比 43 vs 11
 ![alt text](image-17.png)
 

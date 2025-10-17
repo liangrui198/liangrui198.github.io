@@ -485,8 +485,6 @@ ReadSchema: struct<live_prod_name:string,aid:bigint,uid:bigint,suid:string,view_
 
  -- 优化sql写法
 
-
-
 -- and a.live_prod_name in ('YY',if(a.dt < '2022-04-06','bdgame','bdsdk'),'sdk_voiceroom')
   AND (
     -- 替代 live_prod_name IN 的动态逻辑
@@ -499,8 +497,6 @@ ReadSchema: struct<live_prod_name:string,aid:bigint,uid:bigint,suid:string,view_
       a.dt >= '2022-04-06' AND a.live_prod_name = 'bdsdk'
     )
   )
-
-
 
 -- 优化后的执行计化，live_prod_name成功谓词下推,
 (107) Scan orc pub_dw.pub_dwv_live_view_btype_view_dr_di

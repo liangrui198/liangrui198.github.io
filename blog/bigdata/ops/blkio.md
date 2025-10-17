@@ -2,8 +2,8 @@
 layout: default
 title:  盘io隔离&监控
 author: liangrui
-description: "OPPO 大数据诊断平台 罗盘" 
-keywords: compass,罗盘,OPPO 大数据诊断平台,OPPO compass
+description: "hadoop集群磁盘io隔离" 
+keywords: cgroup,cadvisor,disk io,hadoop,shuffle
 date: 2025-10-17
 ---
 

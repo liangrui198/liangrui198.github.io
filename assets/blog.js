@@ -1,20 +1,18 @@
 // 图片点击放大功能，适用于所有博客正文图片
+// 图片点击弹窗放大（全局适用，兼容所有页面结构）
 document.addEventListener('DOMContentLoaded', function() {
-  if (document.getElementById('img-popup-mask')) return;
-  var mask = document.createElement('div');
-  mask.id = 'img-popup-mask';
-  mask.style = 'display:none;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;';
-  var img = document.createElement('img');
-  img.style = 'max-width:90vw;max-height:90vh;box-shadow:0 2px 16px #000;border-radius:8px;background:#fff;padding:8px;';
-  mask.appendChild(img);
-  mask.addEventListener('click', function() { mask.style.display = 'none'; });
-  document.body.appendChild(mask);
-  document.querySelectorAll('.blog-content img, .post-content img, .outline ~ img, .outline + img, .outline img').forEach(function(im) {
-    im.style.cursor = 'zoom-in';
-    im.addEventListener('click', function(e) {
-      img.src = im.src;
-      mask.style.display = 'flex';
-      e.stopPropagation();
+  document.querySelectorAll('article img, .blog-content img, img').forEach(function(img) {
+    if (img.classList.contains('no-popup')) return;
+    img.style.cursor = 'zoom-in';
+    img.addEventListener('click', function(e) {
+      if (img.closest('.img-popup-mask')) return;
+      var mask = document.createElement('div');
+      mask.className = 'img-popup-mask';
+      var big = document.createElement('img');
+      big.src = img.src;
+      mask.appendChild(big);
+      mask.onclick = function() { document.body.removeChild(mask); };
+      document.body.appendChild(mask);
     });
   });
 });
@@ -44,7 +42,11 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
-  // 大纲功能
+
+
+
+
+    // 大纲功能
   var outline = document.getElementById('outline-list');
   if (outline) {
     document.querySelectorAll('h2').forEach(function(h, i) {

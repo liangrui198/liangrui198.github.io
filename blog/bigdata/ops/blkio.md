@@ -68,27 +68,30 @@ blkio.throttle.write_bps_device 写操作，和读结束一致。
 -- 首先，测试磁盘的最大IO性能（使用fio或dd等工具）。  
 ```shell
 fio --name=test --filename=/data1/test.file --size=1G --readwrite=readwrite --bs=1M --direct=1 --rw=randrw --ioengine=libaio --iodepth=64 --numjobs=1 --runtime=60 --time_based --group_reporting
-
-cgroup基于bw值的限制：
--- bw (Bandwidth) - 带宽
--- io (I/O) - 输入/输出总量
--- 计算公式
-bw = io / run_time
-67.2 MiB/s = 4065 MiB / 60.529 s
-4065 ÷ 60.529 ≈ 67.2 ✓
 ```
+
+cgroup基于bw值的限制  ：
+-- bw (Bandwidth) - 带宽  
+-- io (I/O) - 输入/输出总量  
+-- 计算公式  
+bw = io / run_time  
+67.2 MiB/s = 4065 MiB / 60.529 s  
+4065 ÷ 60.529 ≈ 67.2 ✓  
+
 #### 配置
-有了上面的介绍和相关数据，就可以根据情况进行配置
+有了上面的介绍和相关数据，就可以根据情况进行配置  
+
 ```shell
 echo "8:0 10485760" > /cgroup/blkio/test/blkio.throttle.write_bps_device
 ```
-- 配置效果
+
+**配置效果**  
 ![alt text](img/blkio/79A0CBC1409804C140AADBE514AA26B6.jpg)
 
 **完整的自动配置脚本参考：**  
 安装配置：https://github.com/liangrui198/groups-blkio/blob/main/hadoop_cg_blkio_init.sh  
 移除：https://github.com/liangrui198/groups-blkio/blob/main/remove_cg.sh  
-自动识别服务&加入cgroup: https://github.com/liangrui198/groups-blkio/blob/main/set_pid_blkio_cg.sh
+自动识别服务&加入cgroup: https://github.com/liangrui198/groups-blkio/blob/main/set_pid_blkio_cg.sh  
 部署&监控指标采集： https://github.com/liangrui198/groups-blkio/blob/main/deploy.sh 
 
 
@@ -117,8 +120,10 @@ container_blkio_io_wait_time_total    # IO等待时间
 ![alt text](img/blkio/72372359409D7F3B7AD9AC06A590F35C.jpg)
 - 其它可以根据自已的需求进行配置
 
-<script src="{{ '/assets/blog.js' | relative_url }}"></script>
+<script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
+
+
 
 <!--菜单栏-->
   <nav class="blog-nav">

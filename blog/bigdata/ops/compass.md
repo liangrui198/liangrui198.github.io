@@ -1128,82 +1128,10 @@ object ReadEsJosnFile {
 ```
 {: .scala-code-block style="display: none;"}
 
-<script>
-// 代码折叠功能
-function toggleCodeCollapse(header) {
-  // 找到下一个scala-code-block元素
-  let content = header.nextElementSibling;
-  while (content && !content.classList.contains('scala-code-block')) {
-    content = content.nextElementSibling;
-  }
-  
-  if (content) {
-    const icon = header.querySelector('.toggle-icon');
-    
-    if (content.style.display === 'none' || content.style.display === '') {
-      content.style.display = 'block';
-      icon.textContent = '▼';
-      header.classList.remove('collapsed');
-    } else {
-      content.style.display = 'none';
-      icon.textContent = '▶';
-      header.classList.add('collapsed');
-    }
-  }
-}
-
-// 支持点击二级标题时，收起其下所有内容（包括三级及更深标题和内容）
-// 并自动生成大纲目录
-document.addEventListener('DOMContentLoaded', function() {
-  // 折叠功能
-  function getFoldContent(header) {
-    let content = [];
-    let el = header.nextElementSibling;
-    while (el && !(el.tagName && /^H[1-6]$/.test(el.tagName) && el.tagName <= header.tagName)) {
-      content.push(el);
-      el = el.nextElementSibling;
-    }
-    return content;
-  }
-  document.querySelectorAll('h2, h3, h4').forEach(function(h) {
-    h.classList.add('fold-title');
-    let content = getFoldContent(h);
-    if (content.length) {
-      content.forEach(e => e.classList.add('fold-content'));
-      h.addEventListener('click', function() {
-        const collapsed = !h.classList.contains('collapsed');
-        content.forEach(e => e.classList.toggle('collapsed', collapsed));
-        h.classList.toggle('collapsed', collapsed);
-      });
-    }
-  });
-  // 大纲功能
-  var outline = document.getElementById('outline-list');
-  if (outline) {
-    document.querySelectorAll('h2').forEach(function(h, i) {
-      var txt = h.textContent.replace(/^#+/, '').trim();
-      // 过滤掉“博客记录”或其它不想显示的大纲项
-      if (txt === '博客记录') return;
-      if (!h.id) h.id = 'outline-h2-' + i;
-      var li = document.createElement('li');
-      var a = document.createElement('a');
-      a.href = '#' + h.id;
-      a.textContent = txt;
-      li.appendChild(a);
-      outline.appendChild(li);
-    });
-  }
-});
-</script>
-
-
+<script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
-<script>
-function toggleBlogNav() {
-  var nav = document.querySelector('.blog-nav');
-  nav.classList.toggle('collapsed');
-}
-</script>
+
+
 
   <nav class="blog-nav">
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>

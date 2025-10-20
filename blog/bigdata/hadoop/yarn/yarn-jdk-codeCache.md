@@ -49,45 +49,10 @@ https://bugs.java.com/bugdatabase/view_bug.do?bug_id=8006952
 ![alt text](../../../../image/code-cache/07.png)
 
 
-
+<script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
-<script>
-// 菜单收起
-function toggleBlogNav() {
-  var nav = document.querySelector('.blog-nav');
-  nav.classList.toggle('collapsed');
-}
-// 图片点击弹窗放大（全局适用，兼容所有页面结构）
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('article img, .blog-content img, img').forEach(function(img) {
-    if (img.classList.contains('no-popup')) return;
-    img.style.cursor = 'zoom-in';
-    img.addEventListener('click', function(e) {
-      if (img.closest('.img-popup-mask')) return;
-      var mask = document.createElement('div');
-      mask.className = 'img-popup-mask';
-      var big = document.createElement('img');
-      big.src = img.src;
-      mask.appendChild(big);
-      mask.onclick = function() { document.body.removeChild(mask); };
-      document.body.appendChild(mask);
-    });
-  });
-});
-  // 大纲功能
-  var outline = document.getElementById('outline-list');
-  if (outline) {
-    document.querySelectorAll('h2').forEach(function(h, i) {
-      if (!h.id) h.id = 'outline-h2-' + i;
-      var li = document.createElement('li');
-      var a = document.createElement('a');
-      a.href = '#' + h.id;
-      a.textContent = h.textContent.replace(/^#+/, '').trim();
-      li.appendChild(a);
-      outline.appendChild(li);
-    });
-  }
-</script>
+
+
 <nav class="blog-nav">
   <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
   {% include blog_navigation.html items=site.data.blog_navigation %}

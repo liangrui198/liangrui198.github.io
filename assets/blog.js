@@ -47,18 +47,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // 大纲功能
-  var outline = document.getElementById('outline-list');
-  if (outline) {
-    document.querySelectorAll('h2').forEach(function(h, i) {
-      if (!h.id) h.id = 'outline-h2-' + i;
-      var li = document.createElement('li');
-      var a = document.createElement('a');
-      a.href = '#' + h.id;
-      a.textContent = h.textContent.replace(/^#+/, '').trim();
-      li.appendChild(a);
-      outline.appendChild(li);
-    });
-  }
+var outline = document.getElementById('outline-list');
+if (outline) {
+  // 只选择文章主体内的h2标题
+  document.querySelectorAll('article h2, .blog-content h2, main h2').forEach(function(h, i) {
+    if (!h.id) h.id = 'outline-h2-' + i;
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = h.textContent.replace(/^#+/, '').trim();
+    li.appendChild(a);
+    outline.appendChild(li);
+  });
+}
+
 });
 
 function toggleBlogNav() {

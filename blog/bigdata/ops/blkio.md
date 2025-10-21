@@ -97,6 +97,8 @@ echo "8:0 10485760" > /cgroup/blkio/test/blkio.throttle.write_bps_device
 
 ## 效果展示
 ### 主要采集到的blkio监控指标信息
+https://yunlzheng.gitbook.io/prometheus-book/part-ii-prometheus-jin-jie/exporter/commonly-eporter-usage/use-prometheus-monitor-container
+
 ```promql
 # IO服务字节数（读写量）
 container_blkio_device_usage_total{operation="Read"}   # 读取字节数
@@ -113,12 +115,46 @@ container_blkio_io_queue_total     # IO队列大小
 container_blkio_io_service_time_total # IO服务时间
 container_blkio_io_wait_time_total    # IO等待时间
 ```
+
 ### 配置到grafana
 - 这里可以查看hadoop相关服务的每块磁盘的读/写/同步/异步值
 ![alt text](img/blkio/D45570C379CBC88326C53A4D525B1DCB.jpg)
 - 这里可以统计出磁盘读写TOP排行
 ![alt text](img/blkio/72372359409D7F3B7AD9AC06A590F35C.jpg)
 - 其它可以根据自已的需求进行配置
+
+## 测试
+- shuufle 跑满
+- ys13_8机器压力测试：（fio测试是70MB/s）  
+第一组数据测试：  
+cgroup配置限制  读56MB/写46MB时，发现还是会把物理机磁盘打满。  
+第二组数据测试：  
+cgroup配置限制  读10MB/写10MB时，这时候（读/秒）明显下降，说明cgroup确实起到了限制作用，对应的物理机也没有到100%，  shuufle服务fetch时间有下降，但没有异常出现。  
+cgroup监控：56MB/s限制时看上去最大确实没有超过56MB/s 第二组测试数据(10MB/s)  的效果明显降低    
+![alt text](img/blkio/image100.png)
+
+ 物理机监控：第一组测试数据（56MB/s）：磁盘io 100% VS  第二组测试数据(10MB/s)  
+PS:这台机当前服务上还有其它进程，当我们看到运维监控的磁盘100%后，再查看cgroup监控，就可以确定是shuufle导致的磁盘io 100%了，如是是dn和nm导致的，原理是一样的。   
+
+运维监控是ioutil,这个公式较为复杂：  
+磁盘I/O相关的性能指标，如“磁盘使用率”(Disk Utilization)，而非一个特定的计算公式。磁盘I/O性能的计算公式主要有：吞吐量（吞吐量= 读写数据总量/ 时间）、IOPS（IOPS = 每秒I/O请求数，即读请求数+ 写请求数/ 时间）、平均数据大小（平均数据大小= 吞吐量/ IOPS）和平均服务时间（平均服务时间= 寻道时间+ 旋转延迟+ 数据传输时间）等。  
+![alt text](img/blkio/image99.png)
+
+shuufle服务监控：当前指标看上去没有太明显变化，也没有异常导致作失败  
+
+## 缺点
+- 目前我们系统比较老，默认系统是cgroup v1,存在以下缺点。  
+**1：两种限制策略的分离与不完整**  
+如果你想使用权重分配（比如让两个 cgroup 按 3：1 的比例共享磁盘带宽），你必须使用 CFQ 调度器。但 CFQ 可能因为性能问题或不被推荐而已被弃用。  
+如果你为了性能使用none或mq-deadline调度器，那么你只能使用throttling策略来设置上限，而无法实现按比例分配。这对于共享环境下的服务质量保障是一个巨大的缺陷。  
+**2：对 Buffered Write 的限制不完善**  
+通过blkio.throttle.write_bps_device设置的写带宽上限对于 Buffered Write 基本上是无效的。只有 Direct I/O 或者因为内存压力触发的同步写入才会被准确限制。这导致了一个 cgroup 可以通过大量缓冲写入轻松耗尽磁盘带宽，而限制形同虚设。  
+
+**总结与 Cgroup v2 的改进**    
+以上限制不严格的缺点在cgroup v2中有改进，但升级系统内核服务需要运维支持，这个先不考虑，我们主要是能够获取服务读写磁盘的监控数据来优化服务为目的。  
+![alt text](img/blkio/image.png)
+
+Cgroup v1 的blkio子系统是一个在其历史背景下产生的、带有明显设计妥协的方案。它的主要缺点源于其控制策略的分离性以及对缓存写入限制的失效性。这些问题在高性能、高隔离需求的容器化环境中变得尤为突出。  
 
 <script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">

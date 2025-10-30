@@ -89,10 +89,10 @@ echo "8:0 10485760" > /cgroup/blkio/test/blkio.throttle.write_bps_device
 ![alt text](img/blkio/79A0CBC1409804C140AADBE514AA26B6.jpg)
 
 **完整的自动配置脚本参考：**  
-安装配置：https://github.com/liangrui198/groups-blkio/blob/main/hadoop_cg_blkio_init.sh  
-移除：https://github.com/liangrui198/groups-blkio/blob/main/remove_cg.sh  
-自动识别服务&加入cgroup: https://github.com/liangrui198/groups-blkio/blob/main/set_pid_blkio_cg.sh  
-部署&监控指标采集： https://github.com/liangrui198/groups-blkio/blob/main/deploy.sh 
+安装配置：https://github.com/liangrui198/groups-blkio/blob/main/cgroupv1/hadoop_cg_blkio_init.sh  
+移除：https://github.com/liangrui198/groups-blkio/blob/main/cgroupv1/remove_cg.sh  
+自动识别服务&加入cgroup: https://github.com/liangrui198/groups-blkio/blob/main/cgroupv1/set_pid_blkio_cg.sh  
+部署&监控指标采集： https://github.com/liangrui198/groups-blkio/blob/main/cgroupv1/deploy.sh 
 
 
 ## 效果展示
@@ -142,6 +142,30 @@ PS:这台机当前服务上还有其它进程，当我们看到运维监控的�
 
 shuufle服务监控：当前指标看上去没有太明显变化，也没有异常导致作失败  
 
+## 测试
+- 每小时跑作业，跑满测试集群，作业正常。
+- 机器压力测试：（fio测试是70MB/s）  
+**第一组数据测试：**  
+cgroup配置限制  读56MB/写46MB时，发现还是会把物理机磁盘打满。  
+**第二组数据测试：**  
+cgroup配置限制  读10MB/写10MB时，这时候（读/秒）明显下降，说明cgroup确实起到了限制作用，对应的物理机也没有到100%，shuufle服务fetch时间有下降，但没有异常出现。  
+cgroup监控：56MB/s限制时看上去最大确实没有超过56MB/s 第二组测试数据(10MB/s)  的效果明显降低 ,但写是o_drict方式写磁盘，这里cgroup v1是元法监控到限制的，只能看到磁盘的总写入量。 
+![alt text](img/blkio/image98.png)  
+ **物理机监控：第一组测试数据（56MB/s）：磁盘io 100% VS  第二组测试数据(10MB/s)**  
+- PS:这台机当前服务上还有其它进程，当我们看到运维监控的磁盘100%后，再查看cgroup监控，就可以确定是shuufle导致的磁盘io 100%了，如是是dn和nm导致的，原理是一样的。  
+当前限制设置的很大（56MB/s），后面线上如果还是有互相影响其它服务，可以调小这个值
+ **监控是ioutil ,这个公式较为复杂：**
+```
+磁盘I/O相关的性能指标，如“磁盘使用率”(Disk Utilization)，而非一个特定的计算公式。磁盘I/O性能的计算公式主要有：吞吐量（吞吐量= 读写数据总量/ 时间）、IOPS（IOPS = 每秒I/O请求数，即读请求数+ 写请求数/ 时间）、平均数据大小（平均数据大小= 吞吐量/ IOPS）和平均服务时间（平均服务时间= 寻道时间+ 旋转延迟+ 数据传输时间）等。
+```
+![alt text](img/blkio/image97.png)
+这里虽然shuufle服务没有到读磁盘（read_bps_device）的数据限制，但是ioutil也会到100%，2个计算公式不一样，可能的情况如下：
+高IOPS可能性大，全是小量的shuufle读，小数据频繁io连接读。  
+所以如果限制shuufle这种高iops的话，后面还要需要下调read_bps_device（当前56MB/s）这个值。  
+从TCP连接数可以看出，他的请求量确实很大10K-15K个连接数在读数据  
+![alt text](img/blkio/image96.png)
+
+
 ## 缺点
 - 目前我们系统比较老，默认系统是cgroup v1,存在以下缺点。  
 **1：两种限制策略的分离与不完整**  
@@ -159,7 +183,75 @@ Cgroup v1 的blkio子系统是一个在其历史背景下产生的、带有明�
 <script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
 
+## ubuntu22.04 启用 cgroup v2
+### 系统查看和启用
 
+- 查看 /sys/fs/cgroup 类型是v1 还是 v2
+```mount | grep cgroup ```
+
+- 如果是v1,改为系统配置
+```shell
+vim /etc/default/grub 
+GRUB_CMDLINE_LINUX="....,systemd.unified_cgroup_hierarchy=1"
+# 更新 GRUB 配置
+sudo update-grub
+# 重启系统
+sudo reboot
+```
+### hadoop相关进程 自动脚本处理cgroup v2
+安装配置：https://github.com/liangrui198/groups-blkio/blob/main/cgroupv2/hadoop_cg_blkio_init.sh  
+移除：https://github.com/liangrui198/groups-blkio/blob/main/cgroupv2/remove_cg.sh  
+自动识别服务&加入cgroup: https://github.com/liangrui198/groups-blkio/blob/main/cgroupv2/set_pid_blkio_cg.sh  
+部署&监控指标采集： https://github.com/liangrui198/groups-blkio/blob/main/cgroupv2/deploy.sh 
+
+### 注意事项
+**需要考虑当前服务器其它服务是否有用cgroup v1,两都版本差别很大，需要做兼容处理。**    
+我们当前环境中是yarn启用了cgroup v1，改了代码支持超配内存，所以不能大量用cgroup v2做监控磁盘写数据。  
+yarn的cgroup v2当前时间还是补丁中，hadoop3.5.0才会上全。  
+详见：https://issues.apache.org/jira/browse/YARN-11669  
+
+## 线上监控发现问题并修复案例
+
+### 问题发现
+从监控上看，发现这台服务器的/data9磁盘 02:00-02:05之间卡顿了5分钟的ioutil 100%,服务的读写磁盘都很小,但iops偏高。  
+![alt text](img/blkio/image95.png)
+发生了什么呢？从运维系统上的监控啥都不知道，打开我们内部的监控，可以精确到服务的读写磁盘数据。发现磁盘的数据很低的,10M/s以下。
+但是iops的指标较高，对应的服务是datanode服务。   
+![alt text](img/blkio/image94.png)  
+ 各种调试，各种调试.....略过过程  
+### 问题定位
+突然发现iotop中的时而出现一个root用户 du -sk /data*/xx datanode数据磁盘目录的统计。  
+```shell
+# 以千字节为单位，汇总显示指定目录（及其包含的所有内容）所占用的总磁盘空间。
+du -sk  /data3/hadoop/dfs/data/current/BP-1056920250-10.21.118.31-1568114378684  
+```
+这是个啥玩意？各种猜测,各种调试.....................
+![alt text](img/blkio/image93.png)  
+手动写了一个监控脚本，出现后找到对应的父进程。发现是指向datanode服务？  
+![alt text](img/blkio/image92.png)  
+在hadoop源码里发现这个诡异的操作，在社区补丁里也找到了对应的修复bug  
+![alt text](img/blkio/image91.png)  
+### 问题修复
+对应的补丁修复：（我们的hdfs当前版本3.1.1） 
+![alt text](img/blkio/image89.png)   
+https://issues.apache.org/jira/browse/HDFS-14313  
+causes to 14313  
+https://issues.apache.org/jira/browse/HDFS-14986  
+
+合并后单元测试成功 
+![alt text](img/blkio/image90.png)  
+测试环境已验证，服务没有问题  
+配置项：
+```
+# fs.du.interval =600000  #默认10分钟   当前线上3600000 1小时。
+# fs.getspaceused.classname=org.apache.hadoop.fs.DU(default),
+# fs.getspaceused.jitterMillis=60000  #1分钟
+
+# update 减少统计频率到10分钟统计一次，并使用hdfs内部副本内存中统计已用空间
+fs.getspaceused.jitterMillis=600000    
+fs.getspaceused.classname=org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.ReplicaCachingGetSpaceUsed   
+```  
+最终修复后上线成功     
 
 <!--菜单栏-->
   <nav class="blog-nav">

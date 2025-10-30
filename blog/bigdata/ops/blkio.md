@@ -123,24 +123,6 @@ container_blkio_io_wait_time_total    # IO等待时间
 ![alt text](img/blkio/72372359409D7F3B7AD9AC06A590F35C.jpg)
 - 其它可以根据自已的需求进行配置
 
-## 测试
-- shuufle 跑满
-- ys13_8机器压力测试：（fio测试是70MB/s）  
-第一组数据测试：  
-cgroup配置限制  读56MB/写46MB时，发现还是会把物理机磁盘打满。  
-第二组数据测试：  
-cgroup配置限制  读10MB/写10MB时，这时候（读/秒）明显下降，说明cgroup确实起到了限制作用，对应的物理机也没有到100%，  shuufle服务fetch时间有下降，但没有异常出现。  
-cgroup监控：56MB/s限制时看上去最大确实没有超过56MB/s 第二组测试数据(10MB/s)  的效果明显降低    
-![alt text](img/blkio/image100.png)
-
- 物理机监控：第一组测试数据（56MB/s）：磁盘io 100% VS  第二组测试数据(10MB/s)  
-PS:这台机当前服务上还有其它进程，当我们看到运维监控的磁盘100%后，再查看cgroup监控，就可以确定是shuufle导致的磁盘io 100%了，如是是dn和nm导致的，原理是一样的。   
-
-运维监控是ioutil,这个公式较为复杂：  
-磁盘I/O相关的性能指标，如“磁盘使用率”(Disk Utilization)，而非一个特定的计算公式。磁盘I/O性能的计算公式主要有：吞吐量（吞吐量= 读写数据总量/ 时间）、IOPS（IOPS = 每秒I/O请求数，即读请求数+ 写请求数/ 时间）、平均数据大小（平均数据大小= 吞吐量/ IOPS）和平均服务时间（平均服务时间= 寻道时间+ 旋转延迟+ 数据传输时间）等。  
-![alt text](img/blkio/image99.png)
-
-shuufle服务监控：当前指标看上去没有太明显变化，也没有异常导致作失败  
 
 ## 测试
 - 每小时跑作业，跑满测试集群，作业正常。
@@ -163,7 +145,8 @@ cgroup监控：56MB/s限制时看上去最大确实没有超过56MB/s 第二组�
 高IOPS可能性大，全是小量的shuufle读，小数据频繁io连接读。  
 所以如果限制shuufle这种高iops的话，后面还要需要下调read_bps_device（当前56MB/s）这个值。  
 从TCP连接数可以看出，他的请求量确实很大10K-15K个连接数在读数据  
-![alt text](img/blkio/image96.png)
+![alt text](img/blkio/image96.png)  
+
 
 
 ## 缺点

@@ -89,16 +89,49 @@ body {
   transform: translateX(0);
   visibility: visible;
 }
-/* 收缩时把侧栏移出视窗（而不是 display:none） */
+/* 折叠时保留可见的手柄并展示固定切换按钮 */
 .blog-nav.collapsed {
-  transform: translateX(-100%);
-  visibility: hidden; /* 保持布局不突变，避免覆盖 */
+  transform: translateX(calc(-100% + 40px)); /* 留 40px 的可点区域 */
+  visibility: visible;
 }
+
+/* 固定的侧栏切换按钮（始终在页面左上角可见，以便恢复侧栏） */
+.nav-toggle-fixed {
+  position: fixed;
+  left: 6px;
+  top: 8px;
+  width: 36px;
+  height: 36px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #333;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  z-index: 1101;
+  cursor: pointer;
+  font-size: 18px;
+  border: none;
+}
+
+@media (max-width:900px) {
+  /* 小屏不显示这个固定按钮（使用原有小屏打开逻辑） */
+  .nav-toggle-fixed { display: none !important; }
+}
+
+/* 折叠状态显示固定按钮（桌面） */
+body.blog-nav-collapsed .nav-toggle-fixed,
+.blog-nav.collapsed + .nav-toggle-fixed {
+  display: flex;
+}
+
 /* 页面主内容为常见容器选择器，留出侧边栏宽度 */
 main, .content, .site-main, .post, .page-content {
   transition: margin-left 0.22s ease;
   margin-left: 260px; /* 与 .blog-nav 宽度保持一致 */
 }
+
 
 /* 当侧栏收缩时正文左侧不再留空 */
 body.blog-nav-collapsed main,

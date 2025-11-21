@@ -90,16 +90,24 @@ function toggleBlogNav() {
   }
 }
 
-// 启动时恢复上次状态
+// 如果没有固定切换按钮，就创建一个，确保折叠后仍可恢复侧栏
 document.addEventListener('DOMContentLoaded', function () {
-  const nav = document.querySelector('.blog-nav');
-  if (!nav) return;
-  const body = document.body;
-  if (localStorage.getItem('blogNavCollapsed')) {
-    nav.classList.add('collapsed');
-    body.classList.add('blog-nav-collapsed');
-  }
-  if (localStorage.getItem('blogNavOpen')) {
-    body.classList.add('blog-nav-open');
+  // 创建固定切换按钮（如果不存在）
+  if (!document.querySelector('.nav-toggle-fixed')) {
+    const btn = document.createElement('button');
+    btn.className = 'nav-toggle-fixed';
+    btn.type = 'button';
+    btn.title = '切换侧栏';
+    btn.innerText = '☰';
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleBlogNav();
+    });
+    const nav = document.querySelector('.blog-nav');
+    if (nav && nav.parentNode) {
+      nav.parentNode.insertBefore(btn, nav.nextSibling);
+    } else {
+      document.body.appendChild(btn);
+    }
   }
 });

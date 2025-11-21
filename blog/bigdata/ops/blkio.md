@@ -249,7 +249,10 @@ fs.getspaceused.classname=org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.
 ```  
 最终修复后上线成功  
 
+## hdfs补丁优化效果
 
+hdfs统计存储量磁盘卡顿问题，已全量灰度完成，目前服务正常。task长尾和推测过多天异常量从最高2万+个降低到1.3万+个。  
+![alt text](img/blkio/image-18.png)  
 
 <!--菜单栏-->
   <nav class="blog-nav">

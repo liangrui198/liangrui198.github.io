@@ -11,16 +11,12 @@
               url: /blog/bigdata/hadoop/hdfs/add-nn.html
             - title: 扩容多个联邦
               url: /blog/bigdata/hadoop/hdfs/add-federation.html
-        - title: Yarn
+        - title: YARN
           children:
             - title: yarn超卖内存实现
               url: /2025/07/18/yarn-elstaic.html
-            - title: jdk-codeCache-bug修复
+            - title: jdk-codeCache-bug
               url: /blog/bigdata/hadoop/yarn/yarn-jdk-codeCache.html
-        - title: MapReduce
-          url: /blog/bigdata/hadoop/mapreduce/
-    - title: Spark
-      url: /blog/bigdata/spark/
 - title: 大数据运维
   children:
     - title: 监控服务

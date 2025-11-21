@@ -251,7 +251,7 @@ fs.getspaceused.classname=org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.
 
 ## hdfs补丁优化效果
 
-hdfs统计存储量磁盘卡顿问题，已全量灰度完成，目前服务正常。task长尾和推测过多天异常量从最高2万+个降低到1.3万+个。  
+hdfs统计存储量磁盘卡顿问题，已全量灰度完成，目前服务正常。task长尾和推测过多天异常量从最高2万+个降低到1.3万+个，集群高峰时段的pedding数也有相应的降低，作业平均时长也相应的降低了。  
 ![alt text](img/blkio/image-18.png)  
 
 <!--菜单栏-->

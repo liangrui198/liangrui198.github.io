@@ -131,6 +131,8 @@ container_blkio_io_wait_time_total    # IO等待时间
 定义： 文件系统在生命周期内完成读写操作的总计数。  
 用途： 通常用来衡量一个文件或目录在特定时间内被访问的频率。  
 限制： 这个数值会随着时间不断累积，最终没有一个固定的“每秒”概念，除非在计算单位时间内的平均读写次数时使用。   
+**总结：** IOPS 是磁盘性能的瞬时指标，而文件系统的读写次数是历史记录。IOPS 衡量的是磁盘在某一秒内能处理多少个读写动作，而文件系统的读写次数是累加的。 
+
 
 
 
@@ -175,8 +177,7 @@ IOPS（IOPS = 每秒I/O请求数，即读请求数+ 写请求数/ 时间）、�
 
 Cgroup v1 的blkio子系统是一个在其历史背景下产生的、带有明显设计妥协的方案。它的主要缺点源于其控制策略的分离性以及对缓存写入限制的失效性。这些问题在高性能、高隔离需求的容器化环境中变得尤为突出。  
 
-<script src="/assets/blog.js"></script>
-<link rel="stylesheet" href="/assets/blog.css">
+
 
 ## ubuntu22.04 启用 cgroup v2
 ### 系统查看和启用
@@ -207,7 +208,7 @@ yarn的cgroup v2当前时间还是补丁中，hadoop3.5.0才会上全。
 
 ## 线上监控发现问题并修复案例
 
-### 问题发现
+### 问题发现（HDFS）
 从监控上看，发现这台服务器的/data9磁盘 02:00-02:05之间卡顿了5分钟的ioutil 100%,服务的读写磁盘都很小,但iops偏高。  
 ![alt text](img/blkio/image95.png)
 发生了什么呢？从运维系统上的监控啥都不知道，打开我们内部的监控，可以精确到服务的读写磁盘数据。发现磁盘的数据很低的,10M/s以下。
@@ -246,10 +247,15 @@ https://issues.apache.org/jira/browse/HDFS-14986
 fs.getspaceused.jitterMillis=600000    
 fs.getspaceused.classname=org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.ReplicaCachingGetSpaceUsed   
 ```  
-最终修复后上线成功     
+最终修复后上线成功  
+
+
 
 <!--菜单栏-->
   <nav class="blog-nav">
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
     {% include blog_navigation.html items=site.data.blog_navigation %}
  </nav>
+
+ <script src="/assets/blog.js"></script>
+<link rel="stylesheet" href="/assets/blog.css">

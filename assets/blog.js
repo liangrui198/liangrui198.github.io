@@ -64,6 +64,42 @@ if (outline) {
 });
 
 function toggleBlogNav() {
-  var nav = document.querySelector('.blog-nav');
-  nav.classList.toggle('collapsed');
+  const nav = document.querySelector('.blog-nav');
+  if (!nav) return;
+  const body = document.body;
+
+  // 在桌面上用 .collapsed；在小屏用 body.blog-nav-open 来打开
+  if (window.matchMedia && window.matchMedia('(max-width:900px)').matches) {
+    // 小屏：使用 body 类来打开/关闭侧栏（覆盖 fixed transform）
+    body.classList.toggle('blog-nav-open');
+    // 也保存状态以便恢复
+    if (body.classList.contains('blog-nav-open')) {
+      localStorage.setItem('blogNavOpen', '1');
+    } else {
+      localStorage.removeItem('blogNavOpen');
+    }
+  } else {
+    // 桌面：切换 .collapsed 并在 body 上加落盘标记
+    nav.classList.toggle('collapsed');
+    body.classList.toggle('blog-nav-collapsed', nav.classList.contains('collapsed'));
+    if (nav.classList.contains('collapsed')) {
+      localStorage.setItem('blogNavCollapsed', '1');
+    } else {
+      localStorage.removeItem('blogNavCollapsed');
+    }
+  }
 }
+
+// 启动时恢复上次状态
+document.addEventListener('DOMContentLoaded', function () {
+  const nav = document.querySelector('.blog-nav');
+  if (!nav) return;
+  const body = document.body;
+  if (localStorage.getItem('blogNavCollapsed')) {
+    nav.classList.add('collapsed');
+    body.classList.add('blog-nav-collapsed');
+  }
+  if (localStorage.getItem('blogNavOpen')) {
+    body.classList.add('blog-nav-open');
+  }
+});

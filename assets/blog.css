@@ -74,37 +74,67 @@ body {
   display: flex;
   align-items: flex-start;
 }
+/* 修复侧栏与正文重叠：固定侧栏并用 transform 切换，正文根据 body 类调整 margin */
 .blog-nav {
-  min-width: 220px;
-  width: 300px;
-  margin-right: 2em;
-  border-right: 1px solid #eee;
-  padding-right: 1em;
   position: fixed;
-  top: 0;
   left: 0;
-  height: 100vh;
-  background: #fafbfc;
-  z-index: 10;
-  overflow-y: auto;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.03);
-  transition: width 0.2s;
+  top: 0;
+  bottom: 0;
+  width: 260px;           /* 可按需调整宽度 */
+  background: #fff;
+  z-index: 1000;
+  box-shadow: 1px 0 6px rgba(0,0,0,0.06);
+  overflow: auto;
+  transition: transform 0.22s ease, visibility 0.22s;
+  transform: translateX(0);
+  visibility: visible;
 }
+/* 收缩时把侧栏移出视窗（而不是 display:none） */
 .blog-nav.collapsed {
-  width: 48px;
-  min-width: 48px;
-  padding-right: 0;
-  border-right: none;
+  transform: translateX(-100%);
+  visibility: hidden; /* 保持布局不突变，避免覆盖 */
 }
+/* 页面主内容为常见容器选择器，留出侧边栏宽度 */
+main, .content, .site-main, .post, .page-content {
+  transition: margin-left 0.22s ease;
+  margin-left: 260px; /* 与 .blog-nav 宽度保持一致 */
+}
+
+/* 当侧栏收缩时正文左侧不再留空 */
+body.blog-nav-collapsed main,
+body.blog-nav-collapsed .content,
+body.blog-nav-collapsed .site-main,
+body.blog-nav-collapsed .post,
+body.blog-nav-collapsed .page-content {
+  margin-left: 0;
+}
+
+/* 小屏和窄窗口下默认隐藏侧栏，通过 body.blog-nav-open 打开 */
+@media (max-width: 900px) {
+  .blog-nav {
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+  body.blog-nav-open .blog-nav {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  /* 小屏时正文不预留侧边距 */
+  main, .content, .site-main, .post, .page-content {
+    margin-left: 0;
+  }
+}
+
+/* 折叠按钮样式（按需微调位置） */
 .blog-nav .collapse-btn {
-  display: block;
-  background: none;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1010;
+  background: transparent;
   border: none;
-  width: 100%;
-  text-align: right;
-  font-size: 0.85em;
   cursor: pointer;
-  margin-bottom: 1em;
+  font-size: 18px;
 }
 .blog-content {
   flex: 1;

@@ -165,7 +165,6 @@ initNavigationBar: function () {
       navigationBarObserver.observe(targetNode, config);
     }
   }.observes('App.router.mainController.isClusterDataLoaded')
-
 ```
 
 ## 需要注意

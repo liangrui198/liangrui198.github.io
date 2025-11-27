@@ -3,7 +3,7 @@ layout: default
 title:  扩展第三台nn
 author: liangrui
 description: "YARN共享缓存" 
-keywords: YARN共享缓存,yarnSharedCache,SCM,hadoop,spark
+keywords: hadoop,hdfs,namenode ha,ambari
 date: 2025-11-20
 ---
 
@@ -113,6 +113,17 @@ patch的修复
 ### 服务客户端更新
   - 客户端需要更新所有hdfs-site.xml配置文件
 
+### 最终效果展示
+ambari插件管理每三台nn服务
+![alt text](add-nn/image4.png)
+
+操作可以启，停，查看状态
+![alt text](add-nn/image5.png)
+
+查看当前所有nn状态详细信息
+![alt text](add-nn/image6.png)
+
+- zkfc没有启动，是避免这个新的nn先为主节点，客户端配置全部更新完后，可为主节点进行切换。
 
 <!--菜单栏-->
   <nav class="blog-nav">

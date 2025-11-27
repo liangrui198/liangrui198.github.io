@@ -11,6 +11,8 @@
               url: /blog/bigdata/hadoop/hdfs/add-nn.html
             - title: nn扩容联邦
               url: /blog/bigdata/hadoop/hdfs/add-federation.html
+            - title: 节点上下线
+              url: /blog/bigdata/hadoop/hdfs/op-node.html
         - title: YARN
           children:
             - title: yarn超卖内存实现

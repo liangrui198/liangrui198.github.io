@@ -373,3 +373,94 @@ pre code {
   border-radius: 0 0 4px 4px;
   margin-top: 0;
 }
+
+/*add*/
+
+/* 浮动大纲样式 */
+.floating-outline {
+  position: fixed;
+  right: 20px;
+  top: 120px;
+  width: 280px;
+  max-height: 72vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  border: 1px solid rgba(0,0,0,0.06);
+  z-index: 1200;
+  transition: transform 200ms ease, opacity 200ms ease;
+  font-size: 14px;
+}
+
+/* header */
+.floating-outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6em 0.6em;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  background: linear-gradient(180deg, #fafafa, #fff);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+.floating-outline-title { font-weight: 600; }
+.floating-outline-toggle {
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.4em;
+}
+
+/* body 内的 ul 样式简单优化 */
+.floating-outline-body {
+  padding: 0.6em;
+}
+.floating-outline-body ul { margin: 0; padding-left: 0.8em; list-style: none; }
+.floating-outline-body li { margin: 0.25em 0; }
+.floating-outline-body a { color: #0366d6; text-decoration: none; cursor: pointer; }
+.floating-outline-body a:hover { text-decoration: underline; }
+
+/* 收起状态：只显示小标签（tab）或极简条 */
+.floating-outline.collapsed {
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+.floating-outline-tab {
+  position: fixed;
+  right: 8px;
+  top: 120px;
+  z-index: 1250;
+  background: #0366d6;
+  color: #fff;
+  border: none;
+  padding: 0.45em 0.6em;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  font-size: 13px;
+}
+
+/* 在收起时显示 tab（脚本会控制显示/隐藏） */
+.floating-outline.collapsed + .floating-outline-tab { display: block; }
+
+/* 响应式：窄屏时缩小宽度并默认收起 */
+@media (max-width: 900px) {
+  .floating-outline {
+    right: 8px;
+    top: 80px;
+    width: 260px;
+    max-height: 60vh;
+  }
+  .floating-outline.collapsed { transform: translateX(110%); }
+  .floating-outline-tab { top: 80px; right: 8px; }
+}
+
+/* 可选：折叠项样式（与之前脚本中的 .collapsed 类配合） */
+.fold-content.collapsed { display: none !important; }
+
+/* 可根据需求将这些样式调整或迁移到更精细的命名空间 */
+  

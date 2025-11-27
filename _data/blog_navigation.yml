@@ -7,9 +7,9 @@
           children:
             - title: EC实现
               url: /2025/07/18/hdfs-ec.html
-            - title: 扩展三台nn备节点
+            - title: nn-HA添加三台
               url: /blog/bigdata/hadoop/hdfs/add-nn.html
-            - title: 扩容多个联邦
+            - title: nn扩容联邦
               url: /blog/bigdata/hadoop/hdfs/add-federation.html
         - title: YARN
           children:

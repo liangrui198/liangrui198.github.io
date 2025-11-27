@@ -21,19 +21,19 @@ author: liangrui
 
 ## 实现Yarn内存超卖配置后的成果
   提升集群内存利用率15%,超卖内存20TB+的实践
-### 启用cgroup来监控内存后，对比nodemanger服务器，nm JVM堆内存效率提升，GC时长和GC次数明显降低
+### 效果对比
+ 启用cgroup来监控内存后，对比nodemanger服务器，nm JVM堆内存效率提升，GC时长和GC次数明显降低  
 ![alt text](/image/yarn-elastic/10.png)
-
-### 观察到nm升级为cgroups管理内存后，整个堆内存应用降低很多，可以把nm内存降低2G，（8-2=6G）,并把这2G给到yarn分配使用。 例：ys13_7调整后的效果
+观察到nm升级为cgroups管理内存后，整个堆内存应用降低很多，可以把nm内存降低2G，（8-2=6G）,并把这2G给到yarn分配使用。 例：ys13_7调整后的效果  
 ![alt text](/image/yarn-elastic/11.png)
-### 原101G+15=116G，超卖15G  |  cgroups限制内存为：103G
+ 原101G+15=116G，超卖15G  |  cgroups限制内存为：103G   
 ![alt text](/image/yarn-elastic/12.png)
 
-### yarn可分配总内存提升20TB左右，当前对比90天历史数据
+ yarn可分配总内存提升20TB左右，当前对比90天历史数据    
 ![alt text](/image/yarn-elastic/13.png)
-### 业务分配的内存对比，例：核心队列 当前分配内存也相对多了15%。其它队列一样提升15%
+业务分配的内存对比，例：核心队列 当前分配内存也相对多了15%。其它队列一样提升15%  
 ![alt text](/image/yarn-elastic/14.png)
-### 高峰期任务并行量增加，说明有更多的资源给到任务在跑
+高峰期任务并行量增加，说明有更多的资源给到任务在跑  
 ![alt text](/image/yarn-elastic/15.png)
 
 
@@ -71,8 +71,9 @@ author: liangrui
 yarn集群显示内存use 100GB,实际物理内只有28%的利用率，那么就有50%的内存存在碎片浪费
 <!--  -->
 
-### 解决这个问题，需要开启yarn cgroup功能
-以下内容是DeepSeek给出的对比  问答主题：（linux pid 内存统计 vs cgroup内存统计）
+### 解决方案  
+解决这个问题，需要开启yarn cgroup功能  
+以下内容是DeepSeek给出的对比  问答主题：（linux pid 内存统计 vs cgroup内存统计） 
 ![alt text](/image/yarn-elastic/04.png)
 
 ## 实现方案

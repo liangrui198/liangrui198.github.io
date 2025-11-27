@@ -33,11 +33,11 @@ date: 2025-11-20
 单独部署一套ambar+namenode服务，通过手动修改相关配置的方式，使nn和已有的dn建立链接，一样需要重启服务才能生效，但这个重启我们可以手动来控制，按批来重启，不需要全部一次停掉。  
 目前在测试环境上已经搭建完毕，是可以这么来做，但手动修改的地方较大，后续维护起来有成本，
 #### 方案2详细部署
-需要独立ambari环境，独立服务器（ambari,zk,jn），避免和老nn混用，带来不必要的异常
-![alt text](add-federtaion/image6.png) 
+需要独立ambari环境，独立服务器（ambari,zk,jn），避免和老nn混用，带来不必要的异常  
+![alt text](add-federtaion/image6.png)   
 先手动搭建好独立的ambari+ns集群，并且手动改相关配置（根据老集群的nn配置）。  
 对于老集群需要加入以下配置，并重启所有dn和相关服务，分批重启，手动控制  
-![alt text](add-federtaion/image3.png)
+![alt text](add-federtaion/image3.png)  
 
 ## ranger问题解决
 ### ranger-plugin变动

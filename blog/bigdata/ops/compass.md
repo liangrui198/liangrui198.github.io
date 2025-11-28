@@ -13,7 +13,7 @@ date: 2025-08-15
 </script>
 
 # compass诊断平台模块分析
-应用文档可以直接查看：<a href="https://github.com/cubefs/compass "> compassGithub</a>
+应用文档可以直接查看：<a href="https://github.com/cubefs/compass "> compassGithub</a>  
 因:调度系统是自研的，mysql平台不支持canal采集,这里对源码做了分析，进行了数据对接和转换
 
 

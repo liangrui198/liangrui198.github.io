@@ -7,22 +7,10 @@ author: liangrui
 date: 2025-08-15
 ---
 
-<div class="post-date">
-  <span class="calendar-icon">📅</span>
-  <span class="date-label">发布：</span>
-  <time datetime="2025-08-18" class="date-value">2025-08-15</time>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>
   mermaid.initialize({ startOnLoad: true });
 </script>
-
-<div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
-  <strong>大纲：</strong>
-  <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
-</div>
-
 
 # compass诊断平台模块分析
 应用文档可以直接查看：<a href="https://github.com/cubefs/compass "> compassGithub</a>
@@ -839,9 +827,10 @@ group by cl,c2...;
  - 这里只能通过导出ES json文件到HDFS上，spark读取HDFS json文件进行解析，解析代码如下：  
 ![alt text](image-3.png)
 
-<div class="code-collapse-header" onclick="toggleCodeCollapse(this)">点击展开spark解析代码 <span class="toggle-icon">▼</span></div>
 
-```scala
+<details class="code-collapse">
+<summary>点击展开spark解析代码（默认收起，点击展示开）</summary>
+{% highlight scala %}
 package com.aengine.spark.app.compass
 import com.aengine.spark.utils.ResourcesUtils
 import org.apache.commons.lang.StringUtils
@@ -1124,15 +1113,25 @@ object ReadEsJosnFile {
     }
   }
 }  
+{% endhighlight %}
+</details>
 
-```
-{: .scala-code-block style="display: none;"}
+
+
+<div class="post-date">
+  <span class="calendar-icon">📅</span>
+  <span class="date-label">发布：</span>
+  <time datetime="2025-08-18" class="date-value">2025-08-15</time>
+</div>
+
+<div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
+  <strong>大纲：</strong>
+  <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
+</div>
+
 
 <script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
-
-
-
   <nav class="blog-nav">
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
     {% include blog_navigation.html items=site.data.blog_navigation %}

@@ -1,29 +1,66 @@
 ---
 layout: default
-title:  hdfs-EC实现和应用
+title:  cortex统一存储prometheus
 author: liangrui
 ---
-# cortex统一存储prometheus
+
+<div class="post-date">
+  <span class="calendar-icon">📅</span>
+  <span class="date-label">发布：</span>
+  <time datetime="2025-07-20" class="date-value">2025-11-20</time>
+</div>
 
 <div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
   <strong>大纲：</strong>
   <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
 </div>
 
+# cortex统一存储prometheus
 
 ## 参考文档
 官方文档:https://cortexmetrics.io/docs/architecture/  
 AWS服务化：https://aws.amazon.com/cn/prometheus/  
+cortex 架构图  
+![alt text](img/image-11.png)
 
 ## cortex部署
 ### 说明
- 官方文档：https://cortexmetrics.io/docs/getting-started/  
   - 目前cortex生产会推荐存在云盘上，没有对本地磁盘做远端存储开发副本功能。因些需要手动搭建一个nfs磁盘共享，并备份功能。
  - cortex主要实现了Prometheus远端存储，集群复制数据功能。
  - 目前是用本地磁盘存储，cortex建议存放在AWS S3或都其它运存储服务上，让数据从本地管理中解脱出来，这个后期有需求在接入。
 
- ### 启动脚本
- onsul.hostname需要配置LSV  
+### consul部署
+cortex需要consul做分布式协调 
+配置文件：/etc/consul.d/consul.hcl
+```
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
+# Full configuration options can be found at https://www.consul.io/docs/agent/config
+datacenter = "bigdata-dc-1"
+data_dir = "/data/consul"
+#client_addr = "0.0.0.0"
+client_addr = "{{ GetPrivateInterfaces | exclude \"type\" \"ipv6\" | join \"address\" \" \" }} {{ GetAllInterfaces | include \"flags\" \"loopback\" | join \"address\" \" \" }}"
+
+# ui
+ui_config{
+  enabled = true
+}
+# server
+server = true
+# Bind addr
+bind_addr = "10.12.65.148" # Listen on all IPv4
+bootstrap_expect=3
+retry_join = ["cortex-64-64.hiido.host.int.xx.com", "cortex-64-66.hiido.host.int.xx.com"]
+
+```
+服务状态 
+基于supversior进行管理 
+![alt text](img/image-10.png)  
+
+
+ ### cortex启动脚本  
+ onsul.hostname需要配置LSV    
  ```
  [program:cortex]
 command=/data/cortex/cortex -config.file=/data/cortex/conf/consul-config-blocks-local.yaml  -distributor.ring.instance-interface-names=bond0 
@@ -34,7 +71,7 @@ command=/data/cortex/cortex -config.file=/data/cortex/conf/consul-config-blocks-
     -compactor.ring.instance-interface-names=bond0 
     -store-gateway.sharding-ring.instance-interface-names=bond0
     -ring.store=consul 
-    -consul.hostname=cortex-65-148.hiido.host.int.yy.com:8500 
+    -consul.hostname=cortex-65-148.hiido.host.int.xx.com:8500 
     -distributor.replication-factor=3     
 autostart=true
 autorestart=true
@@ -45,10 +82,24 @@ stdout_logfile=/data/logs/cortex/stdout.log
 stdout_logfile_maxbytes=50MB
  ```
 ### supervisor管理
+ubuntu 安装supervisor服务
+```bash
+apt-get update -y 
+apt-get remove supervisor -y
+apt install python-pip -y
+pip install supervisor
+
+/usr/local/bin/supervisord 
+echo_supervisord_conf > /etc/supervisord.conf
+-- add files = /etc/supervisor/conf.d/*.conf
+supervisord -c /etc/supervisord.conf
+
+supervisorctl status
+```
  ![alt text](../../../image/ops/01.png)
 
 ## 使用
-### prometheus接入
+### prometheus接入 
 
 X-Scope-OrgID不可重复，fake是默认的  
 需要定义一个规则例：项目名_服务名_自定义区分  
@@ -102,65 +153,12 @@ ln -s /data2/nfs/cortex/tsdb/yarn_app_finish    /data1/nfs/cortex/tsdb/yarn_app_
 ```
 
 
-### 待完善文档 
 
-
-
-<script>
-// 支持点击二级标题时，收起其下所有内容（包括三级及更深标题和内容）
-// 并自动生成大纲目录
-document.addEventListener('DOMContentLoaded', function() {
-  // 折叠功能
-  function getFoldContent(header) {
-    let content = [];
-    let el = header.nextElementSibling;
-    while (el && !(el.tagName && /^H[1-6]$/.test(el.tagName) && el.tagName <= header.tagName)) {
-      content.push(el);
-      el = el.nextElementSibling;
-    }
-    return content;
-  }
-  document.querySelectorAll('h2, h3, h4').forEach(function(h) {
-    h.classList.add('fold-title');
-    let content = getFoldContent(h);
-    if (content.length) {
-      content.forEach(e => e.classList.add('fold-content'));
-      h.addEventListener('click', function() {
-        const collapsed = !h.classList.contains('collapsed');
-        content.forEach(e => e.classList.toggle('collapsed', collapsed));
-        h.classList.toggle('collapsed', collapsed);
-      });
-    }
-  });
-  // 大纲功能
-  var outline = document.getElementById('outline-list');
-  if (outline) {
-    document.querySelectorAll('h2').forEach(function(h, i) {
-      var txt = h.textContent.replace(/^#+/, '').trim();
-      // 过滤掉“博客记录”或其它不想显示的大纲项
-      if (txt === '博客记录') return;
-      if (!h.id) h.id = 'outline-h2-' + i;
-      var li = document.createElement('li');
-      var a = document.createElement('a');
-      a.href = '#' + h.id;
-      a.textContent = txt;
-      li.appendChild(a);
-      outline.appendChild(li);
-    });
-  }
-});
-</script>
-
-
-<link rel="stylesheet" href="/assets/blog.css">
-<script>
-function toggleBlogNav() {
-  var nav = document.querySelector('.blog-nav');
-  nav.classList.toggle('collapsed');
-}
-
-</script>
+<!--菜单栏-->
   <nav class="blog-nav">
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
     {% include blog_navigation.html items=site.data.blog_navigation %}
-</nav>
+ </nav>
+
+ <script src="/assets/blog.js"></script>
+<link rel="stylesheet" href="/assets/blog.css">

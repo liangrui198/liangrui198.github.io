@@ -70,14 +70,15 @@ ambari会进行相关hdp服务包的配置下载，点完这个流程后，服�
   随机上一台nn验证: cat /etc/hadoop/conf/dfs.exclude 
 3: 执行刷新
   ```shell
-  # 跳板机上执行
-  ssh fs-hiido-yycluster01-yynn3.xx.com  "sudo -s su hdfs -c 'hdfs dfsadmin -fs hdfs://fs-hiido-yycluster01-yynn3.xx.com:8020 -refreshNodes'"
+# 跳板机上执行
+ssh fs-hiido-yycluster01-yynn3.xx.com  "sudo -s su hdfs -c 'hdfs dfsadmin -fs hdfs://fs-hiido-yycluster01-yynn3.xx.com:8020 -refreshNodes'"
 ssh fs-hiido-yycluster02-yynn3.xx.com  "sudo -s su hdfs -c 'hdfs dfsadmin -fs hdfs://fs-hiido-yycluster02-yynn3.xx.com:8020 -refreshNodes'"
 
 #或hdfs客户端上执行03 05退役
 hdfs dfsadmin -fs hdfs://yycluster03 -refreshNodes
 hdfs dfsadmin -fs hdfs://yycluster05 -refreshNodes
-  ````
+```
+
 4：过3-5天查看退役状态，在hdfs web页面上看到退役完成后，即可删除datanode。进行隔离下线即可  
 5：如果在ambari2上执行退役，会更改nn3-6的dfs.exclude文件，如果再次刷新节点，会重新把之前的dn退役后，没有stop掉的dn重新拉回去。(不能同时两边操作退役dn)
 

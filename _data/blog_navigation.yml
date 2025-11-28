@@ -35,12 +35,4 @@
       children:
             - title: 统一告警
               url: /blog/bigdata/ops/alter.html                   
-- title: AI
-  url: /blog/ai/
-  children:
-    - title: 机器学习
-    - title: 深度学习
-      children:
-            - title: markdown-demo
-              url: /blog/ai/ml/markdown-demo.html
-   
+

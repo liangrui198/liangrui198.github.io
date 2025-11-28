@@ -6,20 +6,8 @@ keywords: yarn,内存超卖,cgroup,资源调度,大数据
 author: liangrui
 ---
 
-<div class="post-date">
-  <span class="calendar-icon">📅</span>
-  <span class="date-label">发布：</span>
-  <time datetime="2025-07-18" class="date-value">2025-07-18</time>
-</div>
-
-# Yarn超卖内存实现
-
-<div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
-  <strong>大纲：</strong>
-  <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
-</div>
-
-## 实现Yarn内存超卖配置后的成果
+# YARN超卖内存实现
+## 实现YARN内存超卖配置后的成果
   提升集群内存利用率15%,超卖内存20TB+的实践
 ### 效果对比
  启用cgroup来监控内存后，对比nodemanger服务器，nm JVM堆内存效率提升，GC时长和GC次数明显降低  
@@ -282,11 +270,25 @@ spark.task.oomKill.maxFailures=默认源码里指定到30次,可根据情况调�
   - 增加cgroups ook-kill次数监控指标，在hadoop源码里增加，目前hadoop源码没有实现这个指标监控。可以及时发现超卖异常问题。
   - 相关异常exit code作业异常告警,主要是13,137，内存问题导致加载类失败等异常
 
-<script src="/assets/blog.js"></script>
-<link rel="stylesheet" href="/assets/blog.css">
+
+<div class="post-date">
+  <span class="calendar-icon">📅</span>
+  <span class="date-label">发布：</span>
+  <time datetime="2025-07-18" class="date-value">2025-07-18</time>
+</div>
 
 
+<div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
+  <strong>大纲：</strong>
+  <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
+</div>
+
+
+<!--菜单栏-->
   <nav class="blog-nav">
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
     {% include blog_navigation.html items=site.data.blog_navigation %}
-</nav>
+ </nav>
+
+ <script src="/assets/blog.js"></script>
+<link rel="stylesheet" href="/assets/blog.css">

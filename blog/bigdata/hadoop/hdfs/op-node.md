@@ -7,17 +7,6 @@ keywords: hadoop,hdfs,hadoop上线节点,ambari
 date: 2025-11-20
 ---
 
-<div class="post-date">
-  <span class="calendar-icon">📅</span>
-  <span class="date-label">发布：</span>
-  <time datetime="2025-11-20" class="date-value">2025-11-20</time>
-</div>
-
-<div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:2em;border-radius:8px;">
-  <strong>大纲：</strong>
-  <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
-</div>
-
 
 # hadoop上下线节点操作
 因为我们的hadoop集群，实现了ambari上扩展第三台anmendoe服务和扩容第二个ambari服务来进行hdfs namenode联邦到6个集群进行管理，所以在上下线节点上需要特殊操作，以下是具体操作流程。  
@@ -82,6 +71,17 @@ hdfs dfsadmin -fs hdfs://yycluster05 -refreshNodes
 4：过3-5天查看退役状态，在hdfs web页面上看到退役完成后，即可删除datanode。进行隔离下线即可  
 5：如果在ambari2上执行退役，会更改nn3-6的dfs.exclude文件，如果再次刷新节点，会重新把之前的dn退役后，没有stop掉的dn重新拉回去。(不能同时两边操作退役dn)
 
+
+<div class="post-date">
+  <span class="calendar-icon">📅</span>
+  <span class="date-label">发布：</span>
+  <time datetime="2025-10-20" class="date-value">2025-10-20</time>
+</div>
+
+<div class="outline" style="background:#f6f8fa;padding:1em 1.5em 1em 1.5em;margin-bottom:1em;border-radius:8px;">
+  <strong>大纲：</strong>
+  <ul id="outline-list" style="margin:0;padding-left:1.2em;"></ul>
+</div>
 
 <!--菜单栏-->
   <nav class="blog-nav">

@@ -463,4 +463,48 @@ pre code {
 .fold-content.collapsed { display: none !important; }
 
 /* 可根据需求将这些样式调整或迁移到更精细的命名空间 */
-  
+
+/* 减少发布日期与正文之间的大空白，使正文靠上 */
+.post-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 0.35rem 0;   /* 底部间距更小 */
+  padding: 0.06rem 0.4rem; /* 内边距更小 */
+  line-height: 1;
+}
+
+/* 大纲区域压缩 */
+.outline {
+  margin: 0 0 0.6rem 0;
+  padding: 0.5rem 0.9rem;
+}
+
+/* 文章主体靠上，去掉多余顶间距 */
+article, .post-content, .post, main {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* 缩小 H1 顶部外边距，避免把正文向下推 */
+.post-content h1, article h1, .post h1 {
+  margin-top: 0.35rem;
+  margin-bottom: 0.6rem;
+  padding-top: 0;
+}
+
+/* 如果主题 header 占用较多高度，适度压缩（按需生效） */
+.page-header, .post-header, .site-header, header {
+  margin-top: 0;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+/* 针对移动端进一步收紧 */
+@media (max-width: 900px) {
+  .post-date { font-size: 12px; gap: 0.25rem; margin-bottom: 0.3rem; }
+  .outline { padding: 0.2rem; margin-bottom: 0.5rem; }
+  .post-content h1 { margin-top: 0.3rem; }
+}

@@ -444,23 +444,26 @@ PushedFilters: [In(mtr_src_type, [三方,官方])]
 -- 这里已经很明确的看出orc文件不知道coalesce是啥玩意，就会把hdid全部数据提出来，你自已去coalesce过滤，性能差
 ```
 
-- 优化前后对比，优化前1小时左右，优化后21分钟跑完   
-![alt text](image-10.png)
-![alt text](image-9.png)
+- 优化前后对比，优化前1小时左右，优化后21分钟跑完     
+![alt text](image-10.png)  
+![alt text](image-9.png)  
 
 #### task长尾案例3
-1： 这里显示job[17].stage[18].task[2423]运行耗时48.22s 中位值为0.08s  
-![alt text](image-12.png)
-- 查看对应的sql执行计化，这里发现read的时候源表只一个2k左右的文件，确实是一个分区
-![alt text](image-13.png)
-- 找到对应的sql执行段，这里union后面的表的时候,有个group by,这时候会触发shuufle重分区进行去重，会按当前默认500分区进行切，但对于kb几倍的切500分区，是浪费的，需要手动分区 
-```select  /*+ REPARTITION(1) */ ...```
-![alt text](image-14.png)
+1： 这里显示job[17].stage[18].task[2423]运行耗时48.22s 中位值为0.08s   
+![alt text](image-12.png)  
+- 查看对应的sql执行计化，这里发现read的时候源表只一个2k左右的文件，确实是一个分区  
+![alt text](image-13.png)  
+- 找到对应的sql执行段，这里union后面的表的时候,有个group by,这时候会触发shuufle重分区进行去重，会按当前默认500分区进行切，但对于kb几倍的切500分区，是浪费的，需要手动分区   
+```sql
+select  /*+ REPARTITION(1) */ ...
+```  
+![alt text](image-14.png)  
 
 2： job[26].stage[34].task[4911]运行耗时1.98m 中位值为1.25s  
-- 找到执行计划和对应的sql，这种写法没能谓词下推，从执行计化图中可以明显示看出,有68,360,440条数据被ColumnarToRow 进行fliter
-![alt text](image-15.png)
-![alt text](image-16.png)
+- 找到执行计划和对应的sql，这种写法没能谓词下推，从执行计化图中可以明显示看出,有68,360,440条数据被ColumnarToRow 进行fliter  
+![alt text](image-15.png)  
+![alt text](image-16.png)  
+
 ```sql
 -- 这里明显是没有进行 PushedFilters 
 (104) Scan orc pub_dw.pub_dwv_live_view_btype_view_dr_di
@@ -495,7 +498,6 @@ PartitionFilters: [isnotnull(dt#9502), (dt#9502 = 2025-09-18)]
 PushedFilters: [IsNotNull(bste_act_type), Or(Or(EqualTo(live_prod_name,YY),EqualTo(live_prod_name,sdk_voiceroom)),Or(EqualTo(live_prod_name,bdgame),EqualTo(live_prod_name,bdsdk))), EqualTo(bste_act_type,0)]
 
 ReadSchema: struct<live_prod_name:string,aid:bigint,uid:bigint,suid:string,view_prod_name:string,view_dr:int,bste_act_type:int>
-
 ```
 and (include('SDK_PROD',a.view_prod_name) = 1or a.view_prod_name = 'bdbaizhan')  
 这种因为使用了UDF函数，也不能谓词下推，从执行计化里可以看到有(output rows-filter=68,360,440)条数据被ColumnarToRow，UDF逻辑只有业务清楚，如果需要更优化的性能，需要业务进行先 view_prod_name in(xx,xx)再进行udf转换过滤。  
@@ -518,7 +520,7 @@ and (include('SDK_PROD',a.view_prod_name) = 1or a.view_prod_name = 'bdbaizhan')
 ![alt text](image-11.png)  
 spark 写入的2个task文件 
 
-```text
+```
 46.3 M  138.8 M  hdfs://xx/hive_warehouse/xx.db/livevip_dws_entity_eqmt_mtr_mall_stat_180d_di/dt=2025-09-18/part-00000-c407b8f4-c9be-462f-90dd-2e32ba9a6df1-c000
 46.3 M  138.9 M  hdfs://xx/hive_warehouse/xx.db/livevip_dws_entity_eqmt_mtr_mall_stat_180d_di/dt=2025-09-18/part-00001-c407b8f4-c9be-462f-90dd-2e32ba9a6df1-c000
 
@@ -557,7 +559,6 @@ ip:10.12.64.3
 2025-09-19 03:52:39,171 INFO  datanode.DataNode (DataXceiver.java:writeBlock(738)) - Receiving BP-1159253446-10.21.118.29-1568116770575:blk_5688236938_4994280941 src: /10.12.64.74:28970 dest: /10.12.64.3:1019
 2025-09-19 03:58:59,642 INFO  DataNode.clienttrace (BlockReceiver.java:finalizeBlock(1533)) - src: /10.12.64.74:28970, dest: /10.12.64.3:1019, bytes: 48551864, op: HDFS_WRITE, cliID: DFSClient_attempt_202509190351584893227535942616307_0068_m_000001_2212_1350099200_47, offset: 0, srvID: 9f591b64-46d5-40fe-8b65-177a13a2aba8, blockid: BP-1159253446-10.21.118.29-1568116770575:blk_5688236938_4994280941, duration(ns): 380465797665
 2025-09-19 03:58:59,642 INFO  datanode.DataNode (BlockReceiver.java:run(1506)) - PacketResponder: BP-1159253446-10.21.118.29-1568116770575:blk_5688236938_4994280941, type=LAST_IN_PIPELINE terminating
-
 ```
 part-00001-c407b8f4-c9be-462f-90dd-2e32ba9a6df1-c000 ，(2025-09-19 03:52:39.xx)接收,同秒钟(2025-09-19 03:58:59.xx)finalize 
 从时间上看，管道建立阶段是差不多的，数据完成时间也是差不多的，那就可以证明问题出在客户端上，客户端就是第一个写入datanode的节点10.12.68.18，查看这台服务器的监控指标，发现刚好这个时间点上的某几块磁盘io 100%。说以导致写文件变慢。

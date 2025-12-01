@@ -69,10 +69,10 @@ yarn集群显示内存use 100GB,实际物理内只有28%的利用率，那么就
 我们当前hadoop版本是3.1.1,版本较低，YARN 3.2.0中使用内存弹性控制，需要把相关PR功能合并回3.1.1,具体合并内容
 ![alt text](/image/yarn-elastic/05.png)
 #### 参考文档
-cgroup文档：	https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html
-CGroups 与 YARN 结合使用：	https://hadoop.apache.org/docs/r3.3.0/hadoop-yarn/hadoop-yarn-site/NodeManagerCgroups.html
-YARN 中使用内存控制：	https://hadoop.apache.org/docs/r3.3.0/hadoop-yarn/hadoop-yarn-site/NodeManagerCGroupsMemory.html
-cgroup 内存溢出控制例子：	https://docs.redhat.com/zh-cn/documentation/red_hat_enterprise_linux/7/html/resource_management_guide/sec-memory#memory_example-usage
+cgroup文档：	https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html  
+CGroups 与 YARN 结合使用：	https://hadoop.apache.org/docs/r3.3.0/hadoop-yarn/hadoop-yarn-site/NodeManagerCgroups.html  
+YARN 中使用内存控制：	https://hadoop.apache.org/docs/r3.3.0/hadoop-yarn/hadoop-yarn-site/NodeManagerCGroupsMemory.html  
+cgroup 内存溢出控制例子：	https://docs.redhat.com/zh-cn/documentation/red_hat_enterprise_linux/7/html/resource_management_guide/sec-memory#memory_example-usage  
 
 
 ### 阶段二

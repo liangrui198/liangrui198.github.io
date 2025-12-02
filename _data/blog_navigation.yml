@@ -19,6 +19,8 @@
               url: /2025/07/18/yarn-elstaic.html
             - title: codeCache-bug
               url: /blog/bigdata/hadoop/yarn/yarn-jdk-codeCache.html
+            - title: 用户代理
+              url: /blog/bigdata/hadoop/yarn/non-secure.html 
 - title: 大数据运维
   children:
     - title: 监控服务

@@ -5,7 +5,7 @@ author: liangrui
 ---
 
 
-# 服务自HA说明
+# 服务HA说明
 **HA:高可用性(High Availability)**    
 &nbsp;&nbsp; 一个节点挂了，另一台节点切为主节点。hdfs namenode 和yarn resouceManager 服务主要是通过zk来实现的HA主从，namenode还有一个zkfc的服务来检测主从状态，进行切换。客户端是通过配置来找主节点，客户端也是先偿试nn1,如果nn1是主点就直接连接例用,如果nn2为主节点，nn1会返回主从状态，客户端再偿试nn2的连接。   
 &nbsp;&nbsp; KDC服务将数据库存储在LDAP的情况下（原则上是可以做分布式访问，做负载均衡，不像namenode那样只允许一台主节点来保证数据一强一致性。并发控制交给LDAP服务处理）

@@ -176,7 +176,7 @@ bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
 
 ## 扩展知识:HAProxy结合Keepalived
 - HAProxy和Keepalived是两个互补的组件，它们结合使用可以构建高可用、高性能的负载均衡解决方案。    
-- 这种可以通过一台物理机的ha-proxy服务来管理多个keepalived，ha-proxy分发流量管理,keeplived来实现自己的ip飘逸。    
+- 这种可以通过ha-proxy服务来管理多个keepalived，ha-proxy分发流量管理,keeplived来实现自己的ip飘逸。    
 
 ### HAProxy
 专业的负载均衡器:<a href="https://www.haproxy.org/">官方文档</a>  
@@ -188,6 +188,26 @@ bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
 专注于故障转移和IP地址管理  
 实现VRRP协议，管理虚拟IP（VIP）  
 监控服务健康状态并触发切换  
+
+### 典型架构  
+```
+客户端请求
+     ↓
+ 虚拟IP (VIP: 192.168.1.100)
+     ↓
+┌─────────────────────┐
+│   HAProxy主节点     │ ←─┐
+│ (Keepalived Master) │   │
+└─────────────────────┘   │ Keepalived VRRP协议
+     ↓                    │ 实现VIP漂移
+后端服务器集群             │
+(Web/App/Database)       │
+                         │
+┌─────────────────────┐   │
+│   HAProxy备节点     │ ←─┘
+│ (Keepalived Backup) │
+└─────────────────────┘
+```
 
 
 

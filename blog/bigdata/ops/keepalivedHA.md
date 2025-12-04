@@ -170,8 +170,8 @@ bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
     inet6 fe80::266e:96ff:fe73:6620/64 scope link 
        valid_lft forever preferred_lft forever
 ```     
-**配置效果图** 
-客户端从第一个 KDC 开始尝试,即使第一个kdc服务卡死了，但通过我们的keepalived检查脚本，会发现kinit不行了，就会立刻切换到另一台kdc服务，客户端无感知的，还是一样的连接vip的虚拟ip。    
+**配置效果图**   
+客户端从第一个 KDC 开始尝试,即使第一个kdc服务卡死了，但通过我们的keepalived检查脚本，会发现kinit不行了，就会立刻切换到另一台kdc服务，而不是让客户端一直处理卡顿状态，客户端无感知的，还是一样的连接vip的虚拟ip。    
 ![alt text](img/image-50.png)    
 
 ## 扩展知识:HAProxy结合Keepalived

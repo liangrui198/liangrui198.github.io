@@ -21,6 +21,8 @@
               url: /blog/bigdata/hadoop/yarn/yarn-jdk-codeCache.html
             - title: 用户代理
               url: /blog/bigdata/hadoop/yarn/non-secure.html 
+            - title: YARN共享缓存
+              url: /blog/bigdata/ops/scm.html                 
 - title: 大数据运维
   children:
     - title: 监控服务
@@ -30,9 +32,9 @@
             - title: compass诊断平台
               url: /blog/bigdata/ops/compass.html       
             - title: 磁盘io监控
-              url: /blog/bigdata/ops/blkio.html       
-            - title: YARN共享缓存
-              url: /blog/bigdata/ops/scm.html                        
+              url: blog/bigdata/ops/blkio.html 
+            - title: KDC实现HA
+              url: /blog/bigdata/ops/keepalivedHA.html                             
     - title: 告警服务
       children:
             - title: 统一告警

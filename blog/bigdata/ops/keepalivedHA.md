@@ -103,7 +103,7 @@ export KRB5CCNAME=DIR:$DIR
 date >>/data/keep/script/chk.log
 kinit dev_op -kt /data/keep/kdc/dev_op.keytab >>/data/keep/script/chk.log 2>&1
 ```
-**异常切后主从后告警**
+**异常切主从触发告警**
 `/data/keep/script/notify.sh`
 ```
 #!/bin/bash

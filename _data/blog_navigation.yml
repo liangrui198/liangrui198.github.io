@@ -13,6 +13,8 @@
               url: /blog/bigdata/hadoop/hdfs/add-federation.html
             - title: 节点上下线
               url: /blog/bigdata/hadoop/hdfs/op-node.html
+            - title: hdfs缓存
+              url: /blog/bigdata/hadoop/hdfs/hdfs-cache.html
         - title: YARN
           children:
             - title: YARN超卖内存
@@ -39,4 +41,9 @@
       children:
             - title: 统一告警
               url: /blog/bigdata/ops/alter.html                   
-
+- title: AI
+  url: /blog/ai/
+  children:
+    - title: idea集成AI
+      url: /blog/ai/tools/idea-plugins.html
+ 

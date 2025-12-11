@@ -30,6 +30,11 @@ tmpfs            63G     0   63G   0% /dev/shm
       <name>dfs.datanode.data.dir</name>
       <value>/data1/x,/data1/x,/data3/x,[RAM_DISK]/dev/shm</value>
     </property>
+    <!--如果为磁盘配置了reserved，这个需要单独配置，不然会预留很多空间-->
+    <property>
+      <name>dfs.datanode.du.reserved.ram_disk</name>
+      <value>0</value>
+    </property>
 ```
 
 
@@ -90,7 +95,7 @@ Max locked memory         65536                65536                bytes
 或    
 `echo -e "\n*   - memlock {{hdfs_user_memlock_limit|default(33554432)}}" >> /data/ambari-agent/cache/stacks/HDP/3.0/services/HDFS/package/templates/hdfs.conf.j2`    
 ambari-service文件也需要更改   
-`echo -e "\n*   - memlock {{hdfs_user_memlock_limit|default(33554432)}}" >> /var/lib/ambari-server/resources/stacks/HDP/3.0/services/HDFS/package/templates/hdfs.conf.j2`
+`echo -e "\n{{hdfs_user}}   - memlock {{hdfs_user_memlock_limit|default(33554432)}}" >> /var/lib/ambari-server/resources/stacks/HDP/3.0/services/HDFS/package/templates/hdfs.conf.j2`
 
 这个配置测试没有用到，mark一下       
 `echo -e "\nhdfs soft memlock 33554432\nhdfs hard memlock 33554432" >> /usr/hdp/3.1.0.0-78/etc/security/limits.d/hdfs.conf`
@@ -105,6 +110,10 @@ echo "* - memlock 33554432" | sudo tee -a /etc/security/limits.conf
 cat /proc/${PID}$/limits | grep 'locked memory'
 Max locked memory         35184372088832       35184372088832       bytes     
 ```
+日志查看   
+```
+2025-12-10 15:29:27,346 INFO  impl.FsDatasetImpl (FsVolumeList.java:run(203)) - Time to add replicas to map for block pool BP-1514249846-10.12.65.19-1704289111087 on volume /dev/shm: 2ms
+```
 
 
 ## cache命令
@@ -114,6 +123,9 @@ hdfs cacheadmin -addPool p001
 hdfs cacheadmin -addDirective -path /cache/001 -pool p001 
 hdfs cacheadmin -addDirective -path /cache/002  -pool p001  -replication 1 -ttl 1h
 hdfs dfs -mkdir  /cache/001
+
+#修改权限  
+hdfs cacheadmin -modifyPool p001 -mode 777
 
 # 查看
 hdfs cacheadmin -listDirectives 
@@ -127,11 +139,15 @@ hdfs cacheadmin -listPools -stats
 # 通过list查看id 进行删除
 hdfs cacheadmin -removeDirective id  
 hdfs cacheadmin -removeDirectives <path>
+
+# 提高写的效率，先写内存后异步刷到磁盘中  设置目录为 LAZY_PERSIST 策略
+hdfs storagepolicies -setStoragePolicy -path /cache/002 -policy LAZY_PERSIST
+
 ```
 
 
 ## 验证
-  
+### 查看相关指标  
 打开服务节点后，在显示存储信息时，会有内存存储信息   
 ![alt text](img/image-1.png)  
 
@@ -177,6 +193,60 @@ Num of Blocks: 554506
 ```  
 可以看到 Configured Cache Capacity: 34359738368 (32 GB)  Cache Used: 2015232 (1.92 MB)  符合预期
 
+### 如何确定读的是cache
+
+dn.log  
+```
+2025-12-10 17:30:41,882 INFO  datanode.DataNode (BPOfferService.java:processCommandFromActive(742)) - DatanodeCommand action: DNA_CACHE for BP-1099381363-10.12.76.180-1704271160327 of [1082817566]
+2025-12-10 17:31:41,888 INFO  datanode.DataNode (BPOfferService.java:processCommandFromActive(742)) - DatanodeCommand action: DNA_CACHE for BP-1099381363-10.12.76.180-1704271160327 of [1082817566]
+```
+
+
+disk  磁盘上可以看到物理文件
+```
+root@on-test-hadoop-65-239:/home/liangrui06# ll  /data*/hadoop/hdfs/data/current/BP-1099381363-10.12.76.180-1704271160327/current/finalized/subdir*/subdir*/1082817566
+-rw-r--r-- 1 hdfs hadoop 3949625 Dec 10 18:12 /data5/hadoop/hdfs/data/current/BP-1099381363-10.12.76.180-1704271160327/current/finalized/subdir10/subdir28/1082817566
+```
+RMA_DISK  内存上面看不到任何物理文件，这是正常的
+```
+root@on-test-hadoop-65-239:/dev/shm/current# du -sh /dev/shm/current/BP*/current/finalized
+0       /dev/shm/current/BP-1099381363-10.12.76.180-1704271160327/current/finalized
+0       /dev/shm/current/BP-1514249846-10.12.65.19-1704289111087/current/finalized
+```
+HDFS 的缓存不是把文件复制到 \/dev/shm`，而是通过 mmap()+mlock()将文件页锁到进程地址空间（内存页），因此在`/dev/shm`` 下看不到数据是正常的。   
+验证是否真的被缓存（页面驻留在内存中）可以通过进程内存映射/页面驻留工具或 DataNode 暴露的缓存指标来确认。
+
+```
+root@on-test-hadoop-65-239:/dev/shm/current# pmap -x 13979 | grep blk_1082817581
+00007f5f86971000    3860    3860       0 r--s- blk_1082817581
+00007f5f86971000       0       0       0 r--s- blk_1082817581
+root@on-test-hadoop-65-239:/dev/shm/current# grep blk_1082817581 /proc/13979/maps
+7f5f86971000-7f5f86d36000 r--s 00000000 08:51 115343625                  /data5/hadoop/hdfs/data/current/BP-1099381363-10.12.76.180-1704271160327/current/finalized/subdir10/subdir28/blk_1082817581
+root@on-test-hadoop-65-239:/dev/shm/current# grep -n blk_1082817581 /proc/13979/maps
+12:7f5f86971000-7f5f86d36000 r--s 00000000 08:51 115343625                  /data5/hadoop/hdfs/data/current/BP-1099381363-10.12.76.180-1704271160327/current/finalized/subdir10/subdir28/blk_1082817581
+```    
+
+从日志中查看cache信息,开启debug  
+`hadoop  daemonlog -setlevel on-test-hadoop-65-239.hiido.host.int.yy.com:1022 org.apache.hadoop.hdfs.server.datanode debug`    
+查看日志信息显示Successfully cached 说明cache成功  
+```
+root@on-test-hadoop-65-239:/data/logs/hadoop/hdfs# grep 1082817943  hadoop-hdfs-root-datanode-on-test-hadoop-65-239.hiido.host.int.yy.com.log  | grep cache
+2025-12-11 11:28:58,286 DEBUG impl.FsDatasetCache (FsDatasetCache.java:cacheBlock(309)) - Initiating caching for Block with id 1082817943, pool BP-1099381363-10.12.76.180-1704271160327
+2025-12-11 11:28:58,291 DEBUG impl.FsDatasetCache (FsDatasetCache.java:run(486)) - Successfully cached 1082817943_BP-1099381363-10.12.76.180-1704271160327.  We are now caching 8912896 bytes in total.
+2025-12-11 11:29:58,285 DEBUG impl.FsDatasetCache (FsDatasetCache.java:cacheBlock(300)) - Block with id 1082817943, pool BP-1099381363-10.12.76.180-1704271160327 already exists in the FsDatasetCache with state CACHED
+```
+
+## 监控 
+
+| Name                   | Description                                                         |
+|------------------------|---------------------------------------------------------------------|
+| BlocksCached           | Total number of blocks cached                                       |
+| BlocksUncached         | Total number of blocks uncached                                     |
+| CacheReportsNumOps     | Total number of cache report operations                             |
+| CacheReportsAvgTime    | Average time of cache report operations in milliseconds             |
+
+grafna配置效果  
+![alt text](img/image-2.png)
 
 
 <div class="post-date">

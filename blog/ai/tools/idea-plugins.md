@@ -1,8 +1,8 @@
 ---
 layout: default
-title:  hdfs cache
+title:  idea AI plugins
 author: liangrui
-description: "hdfs cache" 
+description: "idea AI plugins" 
 keywords: idea ai plugins,idea copilot,idea deepseek
 date: 2025-11-20
 ---

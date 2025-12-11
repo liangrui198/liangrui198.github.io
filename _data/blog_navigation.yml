@@ -41,7 +41,6 @@
             - title: 统一告警
               url: /blog/bigdata/ops/alter.html                   
 - title: AI
-  url: /blog/ai/
   children:
     - title: idea集成AI
       url: /blog/ai/tools/idea-plugins.html

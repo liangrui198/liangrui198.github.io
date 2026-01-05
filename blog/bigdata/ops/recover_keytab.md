@@ -59,12 +59,8 @@ done < userlist.txt > selected_users.ldif
 awk '/^dn:/ {print; print "changetype: modify"; next} /^krbPrincipalKey/ {print "add: krbPrincipalKey"; print $0; next} {print}' selected_users.ldif > import_users.ldif
 
 
-
-
-# 输出结果
-Enter LDAP Password: 
+# 输出结果示例
 dn: uid=act_change,cn=users,cn=accounts,dc=xx,dc=com
-krbPrincipalName: act_change@xx.COM
 krbPrincipalKey:: MIIBsqADAg...
 ```
 

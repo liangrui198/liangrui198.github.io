@@ -47,6 +47,20 @@ KVNO: 1, Enctype: aes256-cts-hmac-sha1-96, Active on: Thu Jan 01 08:00:00 CST 19
 ```shell
 ldapsearch -x -h fs-hiido-kerberos-server04.xx.com  -LLL -D "cn=Directory Manager" -W    -b "cn=users,cn=accounts,dc=xx,dc=com"   uid=act_change krbPrincipalName krbPrincipalKey
 
+# 导出全量普通用户 | (objectClass=posixAccount)：过滤出普通用户。你也可以换成 (uid=*)
+ldapsearch  -h fs-hiido-kerberos-server04.hiido.host.xx.com -x -D "cn=Directory Manager" -W   -b "cn=users,cn=accounts,dc=yydevops,dc=com"   "(objectClass=posixAccount)" dn krbPrincipalKey > all_users.ldif
+
+# 导出给定列表用户 
+while read u; do
+  ldapsearch -h fs-hiido-kerberos-server04.hiido.host.xx.com -x -LLL -D "cn=Directory Manager"  -y /root/ldap_pass.txt  -b "cn=users,cn=accounts,dc=yydevops,dc=com"   uid=$u dn krbPrincipalKey
+done < userlist.txt > selected_users.ldif
+
+# 格式化为可导入 LDIF |可以用 awk 自动加上：
+awk '/^dn:/ {print; print "changetype: modify"; next} /^krbPrincipalKey/ {print "add: krbPrincipalKey"; print $0; next} {print}' selected_users.ldif > import_users.ldif
+
+
+
+
 # 输出结果
 Enter LDAP Password: 
 dn: uid=act_change,cn=users,cn=accounts,dc=xx,dc=com

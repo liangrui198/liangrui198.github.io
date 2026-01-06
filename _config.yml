@@ -8,7 +8,7 @@ email: 1067165280@qq.com
 description: >-
   博客是用jekyll默认主题构建的，用于记录大数据相关知识。
 baseurl: "" # 站点子路径，如 /blog
-url: "" # 站点主域名，如 http://example.com
+url: "https://liangrui198.github.io" # 站点主域名，如 http://example.com
 twitter_username: twiter
 github_username:  liangrui198
 title: 博客记录

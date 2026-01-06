@@ -4,6 +4,7 @@ title:  YARN超卖内存实现
 description: "Yarn内存超卖配置实践,提升集群内存利用率15%,超卖内存20TB+的最佳实践" 
 keywords: yarn,内存超卖,cgroup,资源调度,大数据
 author: liangrui
+date:2026-01-06
 ---
 
 # YARN超卖内存实现

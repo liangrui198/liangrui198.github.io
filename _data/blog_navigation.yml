@@ -6,13 +6,13 @@
           children:
             - title: EC实现
               url: /2025/07/18/hdfs-ec.html
-            - title: nn-HA添加三台
+            - title: NN-HA添加三台
               url: /blog/bigdata/hadoop/hdfs/add-nn.html
-            - title: nn扩容联邦
+            - title: NN扩容联邦
               url: /blog/bigdata/hadoop/hdfs/add-federation.html
             - title: 节点上下线
               url: /blog/bigdata/hadoop/hdfs/op-node.html
-            - title: hdfs缓存
+            - title: HDFS缓存
               url: /blog/bigdata/hadoop/hdfs/hdfs-cache.html
         - title: YARN
           children:
@@ -32,7 +32,7 @@
               url: /blog/bigdata/ops/cortex.html
             - title: compass诊断平台
               url: /blog/bigdata/ops/compass.html       
-            - title: 磁盘io监控
+            - title: 磁盘IO监控
               url: blog/bigdata/ops/blkio.html 
             - title: KDC实现HA
               url: /blog/bigdata/ops/keepalivedHA.html

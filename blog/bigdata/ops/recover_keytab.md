@@ -2,7 +2,7 @@
 layout: default
 title:  通过密钥恢复keytab文件
 author: liangrui
-description: "密钥密钥恢复keytab文件" 
+description: "通过密钥恢复keytab文件" 
 keywords: kerberos,recover keytab,kdc,ldap
 date: 2025-12-31
 ---

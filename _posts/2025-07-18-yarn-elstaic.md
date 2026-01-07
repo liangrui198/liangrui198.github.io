@@ -14,16 +14,16 @@ date: 2025-07-18
  启用cgroup来监控内存后，对比nodemanger服务器，nm JVM堆内存效率提升，GC时长和GC次数明显降低  
 ![alt text](/image/yarn-elastic/10.png)
 观察到nm升级为cgroups管理内存后，整个堆内存应用降低很多，可以把nm内存降低2G，（8-2=6G）,并把这2G给到yarn分配使用。 例：ys13_7调整后的效果  
-![alt text](/image/yarn-elastic/11.png)
+![alt text](/image/yarn-elastic/11.png)  
  原101G+15=116G，超卖15G  |  cgroups限制内存为：103G   
-![alt text](/image/yarn-elastic/12.png)
+![alt text](/image/yarn-elastic/12.png)  
 
- yarn可分配总内存提升20TB左右，当前对比90天历史数据    
-![alt text](/image/yarn-elastic/13.png)
-业务分配的内存对比，例：核心队列 当前分配内存也相对多了15%。其它队列一样提升15%  
-![alt text](/image/yarn-elastic/14.png)
+ yarn可分配总内存提升20TB左右，当前对比90天历史数据      
+![alt text](/image/yarn-elastic/13.png)  
+业务分配的内存对比，例：核心队列 当前分配内存也相对多了15%。其它队列一样提升15%   
+![alt text](/image/yarn-elastic/14.png)  
 高峰期任务并行量增加，说明有更多的资源给到任务在跑  
-![alt text](/image/yarn-elastic/15.png)
+![alt text](/image/yarn-elastic/15.png)  
 
 
 ## Yarn默认内存管理存在的问题

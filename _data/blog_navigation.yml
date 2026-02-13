@@ -23,7 +23,12 @@
             - title: 用户代理
               url: /blog/bigdata/hadoop/yarn/non-secure.html 
             - title: YARN共享缓存
-              url: /blog/bigdata/ops/scm.html                 
+              url: /blog/bigdata/ops/scm.html 
+        - title: KDC
+          children:
+            - title: ipa证书修复
+              url: blog/bigdata/hadoop/kdc/kdc-cert.html
+                      
 - title: 大数据运维
   children:
     - title: 监控服务

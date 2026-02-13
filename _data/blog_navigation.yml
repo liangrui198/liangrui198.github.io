@@ -27,7 +27,7 @@
         - title: KDC
           children:
             - title: ipa证书修复
-              url: blog/bigdata/hadoop/kdc/kdc-cert.html
+              url: /blog/bigdata/hadoop/kdc/kdc-cert.html
                       
 - title: 大数据运维
   children:

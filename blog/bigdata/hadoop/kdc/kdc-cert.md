@@ -163,6 +163,34 @@ userCertificate;binary:< file:/root/ds-server-cert.der
 # 导入389ds：
 ldapadd -x -D "cn=Directory Manager" -w $pass -f /root/server-cert.ldif
 
+# 如果是HTTP服务，会映射到某个用户上，映射规则是默认的，也可以手动改 例如下，他是用description来找到用户的，查看内容
+ldapsearch -LLL -x -D "cn=Directory Manager" -w xx   -b "uid=ipara,ou=people,o=ipaca" "(objectClass=*)"
+dn: uid=ipara,ou=people,o=ipaca
+cn: ipara
+description: 2;xx;CN=Certificate Authority,O=YYDEVOPS.COM;CN=IPA RA,O=YYDEVOPS
+ .COM
+objectClass: cmsuser
+objectClass: top
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+objectClass: person
+sn: ipara
+uid: ipara
+userCertificate:: MIIDlD....
+....
+
+
+# 新增以下文件，替换过期的证书和description /tmp/add-ipara.ldif 
+dn: uid=ipara,ou=people,o=ipaca
+changetype: modify
+add: userCertificate
+description:  xxx
+userCertificate:< file:///tmp/ipa-ra.pem
+
+# 执行替换ipara用户下的证书内容
+ldapmodify -x -D "cn=Directory Manager" -W -f /tmp/add-ipara.ldif
+
+
 
 6. 重启服务
 bash

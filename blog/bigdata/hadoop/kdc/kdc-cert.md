@@ -149,7 +149,7 @@ dn: cn=3377531899,ou=certificateRepository,ou=ca,o=ipaca
 objectClass: top
 objectClass: certificateRecord
 cn: 3377531899
-serialno: C9510BFB
+serialno: 053377531899
 certStatus: VALID
 subjectName: CN=fs-hiido-ipa-65-155.hiido.host.xx.com,O=YYDEVOPS.COM
 publicKeyData:: MIIBIjANBgkqhkiG9...
@@ -157,6 +157,8 @@ notBefore: 20260211084404Z
 notAfter: 20260511084404Z
 metaInfo: profileId:caIPAserviceCert
 userCertificate;binary:< file:/root/ds-server-cert.der 
+
+#serialno 说明，前面会加01 02 03 04 05我们查询所有的ou=certificateRepository,ou=ca,o=ipaca,看当前最大值，就用这个值就可以了
 
 # 导入389ds：
 ldapadd -x -D "cn=Directory Manager" -w $pass -f /root/server-cert.ldif

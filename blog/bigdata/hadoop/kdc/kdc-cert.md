@@ -319,7 +319,7 @@ changetype: modify
 replace: userCertificate
 userCertificate:: MIIFKzCC...
 
-ldapmodify -x -D "cn=Directory Manager" -w ipaadmin4yycluster -f modify_http_08.ldif
+ldapmodify -x -D "cn=Directory Manager" -w xx -f modify_http_08.ldif
 
 #日志异常输出
 [13/Feb/2026:10:49:36 +0800] - database index operation failed BAD 1040, err=12 Cannot allocate memory
@@ -334,11 +334,11 @@ nsslapd-db-locks: 200000
 start-dirsrv 
 
 # 再次执行成功
-ldapmodify -x -D "cn=Directory Manager" -w ipaadmin4yycluster -f modify_http_08.ldif
+ldapmodify -x -D "cn=Directory Manager" -w xx -f modify_http_08.ldif
 
-# 然后发现有很多ou=requests,o=ipaca数据，也是超级大，这些是审计日志，可以清理掉
+# 然后发现有很多ou=requests,o=ipaca数据，也是超级大，正在使用的不能删除，可以根据情况清除
 ldapsearch -x -D "cn=Directory Manager" -W -b "ou=requests,o=ipaca" "(requestState=complete)" dn | grep "^dn:" > completed_requests.ldif
-ldapmodify -x -D "cn=Directory Manager" -w ipaadmin4yycluster -f  completed_requests.ldif
+ldapmodify -x -D "cn=Directory Manager" -w xx -f  completed_requests.ldif
 
 ```
 

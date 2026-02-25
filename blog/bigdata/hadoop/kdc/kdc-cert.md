@@ -76,6 +76,10 @@ certutil -S -d /etc/dirsrv/slapd-YYDEVOPS-COM \
   -t "u,u,u" -k rsa -g 2048 -Z SHA256 \
   -f /root/nss-pin.txt
 
+
+ # 60个月有效期 
+  -v 60
+
 #  -n "Server-Cert" → 正确的 nickname。
 #  -s → 使用主机 FQDN 作为 CN。
 #  -c → 用 CA 签名证书签发。
@@ -138,6 +142,12 @@ certutil -L -d /etc/apache2/nssdb  -n ipaCert
 
 # 获取序列号并转十进制
 openssl x509 -in /root/ds-server-cert.pem -noout -serial
+
+#或者查看本地库证书信息
+certutil -L -d /etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" -a | openssl x509 -noout -serial -subject
+serial=C9510BFB
+subject= xx
+
 # 假设输出 serial=C9510BFB
 printf "%d\n" 0xC9510BFB
 # 输出 3377531899
@@ -156,6 +166,7 @@ publicKeyData:: MIIBIjANBgkqhkiG9...
 notBefore: 20260211084404Z
 notAfter: 20260511084404Z
 metaInfo: profileId:caIPAserviceCert
+metaInfo: requestId:xx
 userCertificate;binary:< file:/root/ds-server-cert.der 
 
 #serialno 说明，前面会加01 02 03 04 05我们查询所有的ou=certificateRepository,ou=ca,o=ipaca,看当前最大值，就用这个值就可以了
@@ -336,11 +347,17 @@ start-dirsrv
 # 再次执行成功
 ldapmodify -x -D "cn=Directory Manager" -w xx -f modify_http_08.ldif
 
-# 然后发现有很多ou=requests,o=ipaca数据，也是超级大，正在使用的不能删除，可以根据情况清除
+# 然后发现有很多ou=requests,o=ipaca数据，也是超级大，
+# 正在使用的不能删除(在续订证书的时候会查询这个玩意，不然证书会报Record not found异常)，可以根据情况清除
+# metaInfo: requestId:39840 证书根据这个requestId去查询相关信息
 ldapsearch -x -D "cn=Directory Manager" -W -b "ou=requests,o=ipaca" "(requestState=complete)" dn | grep "^dn:" > completed_requests.ldif
 ldapmodify -x -D "cn=Directory Manager" -w xx -f  completed_requests.ldif
 
 ```
+例如:  
+![alt text](img/cert/image06.png)  
+
+
 
 ### 再次执行安装
 做完以上后，所有安装成功，证书也全部更新成功
@@ -386,6 +403,62 @@ Request ID '20260213073212':
         key pair storage: type=NSSDB,location='/etc/pki/pki-tomcat/alias',nickname='Server-Cert cert-pki-ca',token='NSS Certificate DB',pin set
         expires: 2028-02-03 07:31:51 UTC
 ```
+## pkidbuser证书信息不更新问题
+ 日期没有到期，提前更新了证书,证书确实更新完成了，但是pki服务立马就抛出异常   
+ `getcert resubmit -i  20260213073210 `   
+
+ 异常日志   
+ ```log
+ Could not connect to LDAP server host fs-hiido-ipa-65-155.hiido.host.xx.com port 636 Error netscape.ldap.LDAPException: Authentication failed (49)
+        at com.netscape.cmscore.ldapconn.LdapBoundConnFactory.makeConnection(LdapBoundConnFactory.java:205)
+        ...
+ ```
+ 代码调试指向这里，这个玩意是调用java本地库执行的，用的是c++，调试很复杂，java只能看到参数是传入本地证书为subsystemCert cert-pki-ca,那肯定是这个证书搞的鬼。各种查找对比。     
+![alt text](img/cert/image07.png)   
+
+发现是pkidbuser里面的证书信息又没有改，真想把写这个逻辑的人纠出来打一顿，这种很难调试，又不做好一致性验证，日志也没有任何提示，完全懵逼状态。  
+主要是userCertificate和description信息要对上，修改为最新的证书信息就可以了
+```bash
+#证书People相关条目录，需要检查是否有最新的证书
+#People 条目 在 Dogtag/FreeIPA 架构里其实很重要，它不是随便的用户目录，而是 PKI 子系统内部用来做认证映射的用户集合。
+ldapsearch -LLL -x   -D "cn=Directory Manager" -w $pass   -b "ou=People,o=ipaca" 
+
+# 如果缺失需要 导出新证书
+certutil -L -d /etc/pki/pki-tomcat/alias/ -n "subsystemCert cert-pki-ca" -a > /tmp/new-subsystemCert.crt
+
+# 把新证书写入 People 条目 > xx.ldif
+dn: uid=pkidbuser,ou=people,o=ipaca
+changetype: modify
+add: userCertificate;binary
+userCertificate;binary:: MIIDkjCCAnqgAwIxxx...
+-
+replace: description
+description: 2;268304453;CN=Certificate Authority,O=YYDEVOPS.COM;CN=CA Subsystem,O=YYDEVOPS.COM
+
+# 执行
+ldapmodify -x -D "cn=Directory Manager" -w $pass  -f xx.ldif
+
+#验证
+ldapsearch -LLL -x   -D "cn=Directory Manager" -w $pass   -b "uid=pkidbuser,ou=people,o=ipaca" 
+```
+获取本地更新的证书信息   
+ ```bash
+ certutil -L -d /etc/pki/pki-tomcat/alias/ -n  'subsystemCert cert-pki-ca'
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 268304453 (0xffe0045)
+        Signature Algorithm: PKCS #1 SHA-256 With RSA Encryption
+        Issuer: "CN=Certificate Authority,O=YYDEVOPS.COM"
+        Validity:
+            Not Before: Tue Feb 24 08:52:34 2026
+            Not After : Mon Feb 14 08:52:34 2028
+        Subject: "CN=CA Subsystem,O=YYDEVOPS.COM"
+        Subject Public Key Info:
+ ```
+修改正确的信息后，重启pki服务，pki服务成功连上389ds库    
+systemctl restart pki-tomcatd.service  
+![alt text](img/cert/image08.png)   
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>

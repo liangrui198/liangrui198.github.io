@@ -2,13 +2,14 @@
 layout: default
 title:  kdc
 author: liangrui
-description: "kdc" 
-keywords: kdc
+description: "hadoop集成kerberos认证" 
+keywords: hadoop集成kerberos认证 kerberos kdc freeipa
 date: 2026-02-13
 ---
 
+# hadoop集成kerberos认证
 
-# kdc架构
+## kdc架构
 ...待补充 
 
 ## 常用命令
@@ -39,7 +40,7 @@ ldapmodify -x -D "cn=Directory Manager" -W -f ref_test08.ldif
 ldapmodify -H ldap://localhost:389 -Y GSSAPI -f ref_test08.ldif
 
 #检查映射
-ldapsearch -LLL -x -H ldap://localhost -D "cn=Directory Manager" -w ipaadmin4yycluster  -b "cn=config" "(objectClass=nsSaslMapping)"
+ldapsearch -LLL -x -H ldap://localhost -D "cn=Directory Manager" -w $pass  -b "cn=config" "(objectClass=nsSaslMapping)"
 
 
 ```
@@ -56,9 +57,39 @@ getcert stop-tracking -i 20220901103045
 
 # 重新提交新的请求
 getcert request -d /etc/pki/pki-tomcat/alias     -n "subsystemCert cert-pki-ca"     -c dogtag-ipa-ca-renew-agent     -P 150763924800
+getcert request -d /etc/pki/pki-tomcat/alias     -n "Server-Cert cert-pki-ca"     -c dogtag-ipa-ca-renew-agent     -P 150763924800
 
+# 重新生成记录
 getcert request -d /etc/pki/pki-tomcat/alias     -n "subsystemCert cert-pki-ca"     -c dogtag-ipa-ca-renew-agent     -p /etc/pki/pki-tomcat/password.conf
 
+
+# 查询dn
+ldapsearch -x -D "cn=Directory Manager" -w $pass -b "cn=39840,ou=ca,ou=requests,o=ipaca" 
+
+#删除dn
+ldapdelete -x -D "cn=Directory Manager" -w $pass "cn=39840,ou=ca,ou=requests,o=ipaca"
+
+#证书People相关条目录，需要检查是否有最新的证书
+#People 条目 在 Dogtag/FreeIPA 架构里其实很重要，它不是随便的用户目录，而是 PKI 子系统内部用来做认证映射的用户集合。
+ldapsearch -LLL -x   -D "cn=Directory Manager" -w $pass   -b "ou=People,o=ipaca" 
+
+# 如果缺失需要 导出新证书
+certutil -L -d /etc/pki/pki-tomcat/alias/ -n "subsystemCert cert-pki-ca" -a > /tmp/new-subsystemCert.crt
+
+# 把新证书写入 People 条目
+dn: uid=pkidbuser,ou=people,o=ipaca
+changetype: modify
+add: userCertificate;binary
+userCertificate;binary:: MIIDkjCCAnqgAwIxxx...
+-
+replace: description
+description: 2;268304453;CN=Certificate Authority,O=YYDEVOPS.COM;CN=CA Subsystem,O=YYDEVOPS.COM
+
+# 执行
+ldapmodify -x -D "cn=Directory Manager" -w ipaadmin4yycluster  -f xx.ldif
+
+#验证
+ldapsearch -LLL -x   -D "cn=Directory Manager" -w $pass   -b "uid=pkidbuser,ou=people,o=ipaca" 
 
 
 ```

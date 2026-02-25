@@ -28,6 +28,12 @@
           children:
             - title: ipa证书修复
               url: /blog/bigdata/hadoop/kdc/kdc-cert.html
+            - title: hadoop集成kerberos
+              url: /blog/bigdata/hadoop/kdc/kdc-arch.html
+            - title: KDC实现HA
+              url: /blog/bigdata/ops/keepalivedHA.html
+            - title: keytab文件恢复
+              url: /blog/bigdata/ops/recover_keytab.html    
                       
 - title: 大数据运维
   children:
@@ -39,10 +45,7 @@
               url: /blog/bigdata/ops/compass.html       
             - title: 磁盘IO监控
               url: /blog/bigdata/ops/blkio.html 
-            - title: KDC实现HA
-              url: /blog/bigdata/ops/keepalivedHA.html
-            - title: keytab文件恢复
-              url: /blog/bigdata/ops/recover_keytab.html     
+   
                                     
     - title: 告警服务
       children:

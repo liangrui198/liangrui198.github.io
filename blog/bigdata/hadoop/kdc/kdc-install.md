@@ -97,6 +97,7 @@ ipa-replica-install  --dirsrv-config-file=/root/maxsasliosize.ldif --skip-connch
 ipa-replica-manage del --force ipa-70-3.hiido.host.int.xx.com --cleanup
 
 
+
 ```
 查看服务的信息  
 ```bash
@@ -158,6 +159,75 @@ ipa hostgroup-add-member ipaservers --hosts ipa-test-65-194.hiido.host.xx.com
 # 配置指向访问地个副本节点
 ipa-client-install --domain=hiido.host.xx.com --realm=YYDEVOPS.COM --server=ipa-test-65-188.hiido.host.xx.com
 ```
+## 安装遇到的问题
+### RUV 包含相同的 URL
+ RUV 包含相同的 URL 但副本 ID 不同，则创建的引用会包含重复项。  
+日志：`attrlist_replace - attr_replace (nsslapd-referral, ldap://ipa-70-3.hiido.host.int.xx.com:389/dc%3Dyydevops%2Cdc%3Dcom) failed.`     
+服务bug:https://pagure.io/389-ds-base/c/6f585fa9adaa83efa98b72aa112e162f180b0ad1    
+```bash
+#列出 ruv 发现有2个相同的hostname 但id不同
+
+ipa-replica-manage list-ruv
+ipa-70-7.hiido.host.int.xx.com:389: 79
+ipa-70-7.hiido.host.int.xx.com:389: 82
+...
+
+# 如何确定删除那个  
+ldapsearch -x -D "cn=directory manager" -W \
+  -b "cn=replica,cn=dc\3Dyydevops\,dc\3Dcom,cn=mapping tree,cn=config" \
+  nsds50ruv
+
+# meToipa-70-7.hiido.host.int.yy.com, replica, dc\3Dyydevops\2Cdc\3Dcom, mappin
+ g tree, config
+dn: cn=meToipa-70-7.hiido.host.int.yy.com,cn=replica,cn=dc\3Dyydevops\2Cdc\3Dc
+ om,cn=mapping tree,cn=config
+nsds50ruv: {replicageneration} 699d83610000003c0000
+nsds50ruv: {replica 79 ldap://ipa-70-7.hiido.host.int.yy.com:389} 699fe19c0000
+ 004f0000 699fe19c0000004f0000
+nsds50ruv: {replica 60 ldap://fs-hiido-ipa-65-155.hiido.host.yydevops.com:389}
+  699d83630000003c0000 699fe17d0000003c0000
+nsds50ruv: {replica 73 ldap://ipa-70-3.hiido.host.int.yy.com:389} 699d86e00002
+ 00490000 699fe284000100490000
+nsds50ruv: {replica 72 ldap://ipa-70-2.hiido.host.int.yy.com:389} 699d86ca0002
+ 00480000 699fe288000000480000
+nsds50ruv: {replica 44 ldap://fs-hiido-kerveros-test08.hiido.host.yydevops.com
+ :389}
+nsds50ruv: {replica 76 ldap://ipa-70-8.hiido.host.int.yy.com:389} 699eebea0000
+ 004c0000 699fe0b80001004c0000
+ ....
+
+ nsds50ruv中没有82这个id,说明是没有用到的，需要删除
+
+# 执行删除
+ipa-replica-manage clean-ruv 82
+...
+consistency. Be very careful.
+Continue to clean? [no]: yes
+ipa: DEBUG: Creating CLEANALLRUV task for replica id 82
+ipa: DEBUG: flushing ldaps://fs-hiido-ipa-65-155.hiido.host.yydevops.com:636 from SchemaCache
+ipa: DEBUG: retrieving schema for SchemaCache url=ldaps://fs-hiido-ipa-65-155.hiido.host.yydevops.com:636 conn=<ldap.ldapobject.SimpleLDAPObject instance at 0x7f85186531b8>
+Background task created to clean replication data. This may take a while.
+This may be safely interrupted with Ctrl+C
+
+#必须要保证所有master节点服务在运行，不然会卡在清理ruv，如果有坏的节点可以执行 del先删除  
+ipa-replica-manage list
+ipa-replica-manage del --force ipa-65-189.hiido.host.yydevops.com --cleanup
+
+# 日志输出
+[26/Feb/2026:17:32:44 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Sending cleanAllRUV task to all the replicas... 
+[26/Feb/2026:17:32:44 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Cleaning local ruv's... 
+[26/Feb/2026:17:32:45 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Waiting for all the replicas to be cleaned... 
+[26/Feb/2026:17:32:45 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Waiting for all the replicas to finish cleaning... 
+[26/Feb/2026:17:32:45 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Successfully cleaned rid(82). 
+[26/Feb/2026:17:32:50 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): delete_cleaned_rid_config: failed to find any entries with nsds5ReplicaCleanRUV under (cn=replica,cn="dc=yydevops,dc=com",cn=mapping tree,cn=config) 
+[26/Feb/2026:17:32:50 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): delete_cleaned_rid_config: failed to remove replica config (-1), rid (82) 
+[26/Feb/2026:17:32:50 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Waiting for all the replicas to finish cleaning... 
+[26/Feb/2026:17:32:50 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Not all replicas finished cleaning, retrying in 10 seconds 
+[26/Feb/2026:17:33:00 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Successfully cleaned rid(82). 
+
+那个异常一直输出的日志就消失了  
+```
+
 
 ## 日常运维
 ```bash
@@ -177,10 +247,27 @@ ipa: INFO: The ipactl command was successful
 ipactl restart
 
 
-日志查看4.3和4.8输出不同文件
+# 日志查看4.3和4.8输出不同文件
 tailf /var/log/daemon.log
 tailf /var/log/auth.log
 
+# 查看389ds版本
+ns-slapd -v
+389 Project
+389-Directory/1.3.4.9 B2016.109.158
+
+
+```
+## 备份与恢复
+```bash
+# 备份
+ipa-backup --data --online
+
+# 恢复
+ipa-restore   /var/lib/ipa/backup/xx
+
+# 如果你的证书系统（PKI）完好，只是 LDAP 数据（用户、组、策略）出了问题。
+ipa-restore  /var/lib/ipa/backup/ipa-full-2024-01-15-12-00-00.tar
 ```
 
 ## 配置优化

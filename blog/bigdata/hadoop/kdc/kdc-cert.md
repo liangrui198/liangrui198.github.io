@@ -459,6 +459,14 @@ Certificate:
 修改正确的信息后，重启pki服务，pki服务成功连上389ds库    
 systemctl restart pki-tomcatd.service  
 ![alt text](img/cert/image08.png)   
+## 其它证书相关命令 
+```bash
+# 停止pki tracking证书
+getcert stop-tracking -i 20260xxx
+#重新启用pki tracking证书
+getcert start-tracking -d /etc/pki/pki-tomcat/alias -n <cert-name> -P <pwd> -c dogtag-ipa-ca-renew-agent
+
+```
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>

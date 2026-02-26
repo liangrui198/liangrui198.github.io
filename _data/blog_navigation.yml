@@ -26,6 +26,8 @@
               url: /blog/bigdata/ops/scm.html 
         - title: KDC
           children:
+            - title: ipa服务安装
+              url: /blog/bigdata/hadoop/kdc/kdc-install.html
             - title: ipa证书修复
               url: /blog/bigdata/hadoop/kdc/kdc-cert.html
             - title: hadoop集成kerberos

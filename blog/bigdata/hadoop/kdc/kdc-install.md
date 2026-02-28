@@ -152,7 +152,7 @@ ldapmodify -x -D "cn=Directory Manager" -w $pass  -f modify_http_08.ldif
 ldapsearch -x -H ldap://localhost -D "cn=Directory Manager" -w $pass  -b "krbprincipalname=HTTP/fs-hiido-kerveros-test08.hiido.host.xx.com@YYDEVOPS.COM,cn=services,cn=accounts,dc=yydevops,dc=com" 
 
 ```
-## 客户端安装
+### 客户端安装
 ```bash 
 #安装client
 apt-get install freeipa-client
@@ -160,6 +160,10 @@ apt-get install freeipa-client
 ipa hostgroup-add-member ipaservers --hosts ipa-test-65-194.hiido.host.xx.com
 # 配置指向访问地个副本节点
 ipa-client-install --domain=hiido.host.xx.com --realm=YYDEVOPS.COM --server=ipa-test-65-188.hiido.host.xx.com
+
+# admin工具
+apt-get install freeipa-admintools
+
 ```
 ## 安装遇到的问题
 ### RUV 包含相同的 URL

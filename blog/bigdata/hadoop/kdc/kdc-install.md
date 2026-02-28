@@ -16,8 +16,10 @@ ambari依懒ipa客户端命令，来执行服务安装的时候需要新建kerbe
 ## freeipa全家桶安装
 ### 安装server
 系统安装服务包  
-apt-get update
+```bash
+apt-get update  
 apt-get install -y freeipa-server
+```
 
 安装服务server 
 ```bash
@@ -213,6 +215,59 @@ This may be safely interrupted with Ctrl+C
 ipa-replica-manage list
 ipa-replica-manage del --force ipa-65-189.hiido.host.yydevops.com --cleanup
 
+#如果反复了现，会产生脏数据，需要手动删除，执行以下操作
+ipa-replica-manage del --force ipa-70-7.hiido.host.int.xx.com --cleanup
+
+# 查询出不在的ruv
+ldapsearch -D "cn=Directory Manager" -W -b "cn=config" "(objectclass=nsds5replicationagreement)" cn nsds50ruv
+...
+nsds50ruv: {replica 79 ldap://ipa-70-7.hiido.host.int.yy.com:389} 699fe19c0000
+ ...
+nsds50ruv: {replica 83 ldap://ipa-70-7.hiido.host.int.yy.com:389} 699ff56f0000 
+nsds50ruv: {replica 82 ldap://ipa-70-7.hiido.host.int.yy.com:389} 699ff56f0000
+ 00530000 699ff684000400530000
+
+#增加删除文件
+cat clean_7.ldif 
+dn: cn=clean82_manual, cn=cleanallruv, cn=tasks, cn=config
+objectclass: extensibleObject
+cn: clean82_manual
+replica-base-dn: dc=yydevops,dc=com
+replica-id: 82
+replica-force-cleaning: yes
+
+dn: cn=clean79_manual, cn=cleanallruv, cn=tasks, cn=config
+objectclass: extensibleObject
+cn: clean79_manual
+replica-base-dn: dc=yydevops,dc=com
+replica-id: 79
+replica-force-cleaning: yes
+
+dn: cn=clean83_manual, cn=cleanallruv, cn=tasks, cn=config
+objectclass: extensibleObject
+cn: clean83_manual
+replica-base-dn: o=ipaca
+replica-id: 83
+replica-force-cleaning: yes
+
+#执行
+root@fs-hiido-ipa-65-155:/home/liangrui06# ldapadd -D "cn=Directory Manager" -W -x -f clean_7.ldif 
+Enter LDAP Password: 
+adding new entry "cn=clean82_manual, cn=cleanallruv, cn=tasks, cn=config"
+adding new entry "cn=clean79_manual, cn=cleanallruv, cn=tasks, cn=config"
+adding new entry "cn=clean83_manual, cn=cleanallruv, cn=tasks, cn=config"
+
+#日志显示
+[28/Feb/2026:11:20:43 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Initiating CleanAllRUV Task... 
+[28/Feb/2026:11:20:47 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Successfully cleaned rid(82). 
+[28/Feb/2026:11:21:00 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 83): Successfully cleaned rid(83). 
+[28/Feb/2026:11:21:00 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 79): Successfully cleaned rid(79). 
+
+
+ipa-replica-manage list-ruv
+# ruv彻底消失了
+
+
 # 日志输出
 [26/Feb/2026:17:32:44 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Sending cleanAllRUV task to all the replicas... 
 [26/Feb/2026:17:32:44 +0800] NSMMReplicationPlugin - CleanAllRUV Task (rid 82): Cleaning local ruv's... 
@@ -227,6 +282,73 @@ ipa-replica-manage del --force ipa-65-189.hiido.host.yydevops.com --cleanup
 
 那个异常一直输出的日志就消失了  
 ```
+### dna-plugin - dna_pre_op: no more values available!!
+
+执行增加用户时 ipa user-add mg01 抛出  
+`Operations error: Allocation of a new value for range cn=posix ids,cn=distributed numeric assignment plugin,cn=plugins,cn=config failed! Unable to proceed`
+  
+```bash
+# 查看
+ipa-replica-manage dnarange-show
+fs-hiido-ipa-65-155.hiido.host.yydevops.com: No range set
+ipa-70-2.hiido.host.int.yy.com: No range set
+ipa-70-3.hiido.host.int.yy.com: No range set
+ipa-70-8.hiido.host.int.yy.com: No range set
+ipa-78-184.hiido.host.int.yy.com: No range set
+ipa-70-9.hiido.host.int.yy.com: No range set
+ipa-70-10.hiido.host.int.yy.com: No range set
+ipa-78-172.hiido.host.int.yy.com: No range set
+
+ ipa idrange-find
+---------------
+1 range matched
+---------------
+  Range name: YYDEVOPS.COM_id_range
+  First Posix ID of the range: 1378000000
+  Number of IDs in the range: 200000
+  Range type: local domain range
+----------------------------
+Number of entries returned 1
+----------------------------
+
+#重新分配
+ipa-replica-manage dnarange-set ipa-70-2.hiido.host.int.yy.com 1378010000-1378029999
+ipa-replica-manage dnarange-set ipa-70-3.hiido.host.int.yy.com 1378030000-1378049999
+ipa-replica-manage dnarange-set ipa-70-8.hiido.host.int.yy.com 1378050000-1378069999
+ipa-replica-manage dnarange-set ipa-70-9.hiido.host.int.yy.com 1378070000-1378089999
+ipa-replica-manage dnarange-set ipa-70-10.hiido.host.int.yy.com 1378090000-1378109999
+ipa-replica-manage dnarange-set ipa-78-172.hiido.host.int.yy.com 1378110000-1378129999
+ipa-replica-manage dnarange-set ipa-78-184.hiido.host.int.yy.com 1378130000-1378149999
+ipa-replica-manage dnarange-set fs-hiido-ipa-65-155.hiido.host.yydevops.com 1378150000-1378169999
+
+#验证执行成功了
+ipa user-add mg01
+First name: m
+Last name: g
+-----------------
+Added user "mg01"
+-----------------
+  User login: mg01
+  First name: m
+  Last name: g
+  Full name: m g
+  Display name: m g
+  Initials: mg
+  Home directory: /home/mg01
+  GECOS: m g
+  Login shell: /bin/sh
+  Kerberos principal: mg01@YYDEVOPS.COM
+  Email address: mg01@yydevops.com
+  UID: 1378050000
+  GID: 1378050000
+  Password: False
+  Member of groups: ipausers
+  Kerberos keys available: False
+
+# 如果你的环境未来用户量极大（超过 20 万），你还可以通过 ipa idrange-mod 来通过 Red Hat 身份管理指南 扩展总的 Number of IDs，但目前这 20 万空间配合每节点 2 万的配额已经非常稳健了。
+
+```
+
 
 
 ## 日常运维
@@ -272,7 +394,107 @@ ipa-restore  /var/lib/ipa/backup/ipa-full-2024-01-15-12-00-00.tar
 
 ## 配置优化
 
+### 数据库缓存设置
+https://access.redhat.com/documentation/en-us/red_hat_directory_server/11/html/performance_tuning_guide/memoryusage
+```bash
+pass=xx
 
+ldapmodify -x -H ldap://$(hostname):389 \
+  -D "cn=Directory Manager" -w $pass <<EOF
+dn: cn=config,cn=ldbm database,cn=plugins,cn=config
+changetype: modify
+replace: nsslapd-dbcachesize
+nsslapd-dbcachesize: 5368709120
+EOF
+
+
+ldapmodify -x -H ldap://$(hostname):389 \
+  -D "cn=Directory Manager" -w $pass <<EOF
+dn: cn=userroot,cn=ldbm database,cn=plugins,cn=config
+changetype: modify
+replace: nsslapd-cachememsize
+nsslapd-cachememsize: 5368709120
+EOF
+
+ldapmodify -x -H ldap://$(hostname):389 \
+  -D "cn=Directory Manager" -w $pass <<EOF
+dn: cn=changelog,cn=ldbm database,cn=plugins,cn=config
+changetype: modify
+replace: nsslapd-cachememsize
+nsslapd-cachememsize: 21474836480
+EOF
+
+ldapmodify -x -H ldap://$(hostname):389 \
+  -D "cn=Directory Manager" -w $pass <<EOF
+dn: cn=userroot,cn=ldbm database,cn=plugins,cn=config
+changetype: modify
+replace: nsslapd-dncachememsize
+nsslapd-dncachememsize: 603979776
+EOF
+```
+
+验证配置  
+```bash 
+cat /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif| grep nsslapd-cachememsize
+cat /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif| grep nsslapd-dbcachesize
+cat /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif|grep  nsslapd-cache-autosize
+
+ldapsearch -h $(hostname) -p 389 -D "cn=directory manager" -w $pass -b "cn=userroot,cn=ldbm database,cn=plugins,cn=config" | grep nsslapd-cachememsize
+ldapsearch -h $(hostname) -p 389 -D "cn=directory manager" -w $pass -b "cn=userroot,cn=ldbm database,cn=plugins,cn=config" | grep nsslapd-dbcachesize
+
+```
+
+### fd限制调大  
+```
+sed -i s/LimitNOFILE=8192/LimitNOFILE=131072/g /etc/default/dirsrv.systemd
+systemctl daemon-reexec
+systemctl restart  dirsrv@YYDEVOPS-COM.service
+```
+
+### 线程配置优化
+因当前kdc认证压力过大，原因是在查询389DS服务的时间，默认参数太于限制了资源使用，但服务器上的资源使用很低，需要调大以下参数。   
+参数说明  
+
+```bash
+# 最大线程数
+nsslapd-threadnumber: 128
+# 每个连接可用并发线程数
+nsslapd-maxthreadsperconn: 20
+# 会让空闲连接长时间占用 socket/FD/线程，默认1小时，缩短为5分钟就释放掉
+nsslapd-idletimeout: 300
+# 打开文件描述符最大限制，需要调成一致的，默认的太少了，上限后会阻止复制
+nsslapd-maxdescriptors: 32768
+
+#默认值：
+ nsslapd-idletimeout: 3600 （1 小时）
+ nsslapd-threadnumber: 64
+ nsslapd-maxthreadsperconn: 5
+ sslapd-maxdescriptors: 8192
+
+# -------编写config_update.ldif
+dn: cn=config
+changetype: modify
+replace: nsslapd-threadnumber
+nsslapd-threadnumber: 256
+-
+replace: nsslapd-maxthreadsperconn
+nsslapd-maxthreadsperconn: 20
+-
+replace: nsslapd-idletimeout
+nsslapd-idletimeout: 300
+-
+replace: nsslapd-maxdescriptors
+nsslapd-maxdescriptors: 131072
+
+#-------执行修改文件
+ldapmodify -x -D "cn=Directory Manager" -w  $pass -H ldap://localhost:389 -f config_update.ldif
+#先停再启 
+stop-dirsrv 
+start-dirsrv 
+# 验证配置
+cat /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif| grep sslapd-maxdescriptors
+
+```
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>

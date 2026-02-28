@@ -141,7 +141,21 @@ keepalived -h  # 查看帮助
 sbin/keepalived  -D # 以守护进程（daemon）启动
 sbin/keepalived  -f /etc/keepalived/keepalived.conf  -D # 指定配置文件
 
+#启动参数
+-D 以守护进程（daemon）模式运行
+程序会进入后台运行，并脱离当前终端
+这是生产环境的标准运行方式
+-g 全局模式（global mode）
+通常与 -D 一起使用
+启用全局定义部分（在配置文件中）
+这是推荐的运行方式，特别是在使用 VRRP 脚本时
+-l 日志信息输出到本地文件
+默认情况下，日志通过 syslog 系统服务输出
+使用 -l 参数会将日志直接写入本地文件（通常是 /var/log/keepalived.log）
+
+
 ip addr show eth1           # 查看VIP绑定
+ip addr show bond0
 keepalived -v               # 查看版本
 systemctl status keepalived # 查看服务状态
 
@@ -170,6 +184,19 @@ bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
     inet6 fe80::266e:96ff:fe73:6620/64 scope link 
        valid_lft forever preferred_lft forever
 ```     
+- 日志切隔   
+```bash
+ # 新建文件：/etc/logrotate.d/chk_kinit   
+/data/keep/script/*.log {
+    daily
+    compress
+    rotate 7
+    missingok
+    notifempty
+    dateext
+}
+```
+
 **配置效果图**   
 客户端从第一个 KDC 开始尝试,即使第一个kdc服务卡死了，但通过我们的keepalived检查脚本，会发现kinit不行了，就会立刻切换到另一台kdc服务，而不是让客户端一直处理卡顿状态，客户端无感知的，还是一样的连接vip的虚拟ip。    
 ![alt text](img/image-50.png)    

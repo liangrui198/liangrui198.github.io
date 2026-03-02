@@ -10,7 +10,24 @@ date: 2026-02-13
 # hadoop集成kerberos认证
 
 ## kdc架构
-...待补充 
+FreeIPA 是一个集成的身份管理解决方案，结合了 Linux 原生工具和协议（LDAP、Kerberos、DNS、PKI 等）。下面首先解释 ipactl status 列出的服务以及 certmonger 的作用，然后通过一个流程图展示申请 keytab 文件和利用 keytab 进行 Kerberos 认证的完整流程。  
+
+## 服务角色说明
+
+| 服务名称 | 作用 |
+|----------|------|
+| Directory Service (389-ds) | 基于 LDAP 的目录服务器，存储所有身份数据（用户、组、主机、策略、sudo 规则等）。 |
+| krb5kdc (Kerberos KDC) | Kerberos 密钥分发中心，包含认证服务（AS）和票据授予服务（TGS），负责发放 TGT 和服务票据。 |
+| kadmin | Kerberos 管理服务，提供对 Kerberos 数据库的管理接口（如创建主体、生成 keytab、修改密码等）。 |
+| ipa_memcached | Memcached 缓存服务，用于缓存会话、配置等数据，提高 IPA 服务器性能。 |
+| httpd (Apache) | 提供 FreeIPA 的 Web 界面和 REST API 服务，用户和管理员通过它进行管理操作。 |
+| ipa-custodia | 密钥守护进程，用于安全存储和分发敏感数据（如证书私钥、Kerberos keytab 片段），保护 IPA 内部通信。 |
+| pki-tomcatd (Dogtag PKI) | 证书颁发机构（CA）服务，运行在 Tomcat 中，负责证书的签发、续期、吊销等全生命周期管理。 |
+| ipa-otpd | 一次性密码（OTP）服务，支持双因素认证，与 Kerberos 结合实现 OTP 认证。 |
+| certmonger | 证书监控和续签守护进程。它定期检查本地证书的有效期，并在必要时与 CA（如 pki-tomcatd）交互自动续签证书。 |
+
+这些服务共同构成了 FreeIPA 的核心功能：集中身份认证（Kerberos）、身份存储（LDAP）、证书管理（PKI）和管理接口（HTTP）。  
+
 
 
 ## 常用命令

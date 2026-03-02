@@ -397,10 +397,12 @@ ipa-restore   /var/lib/ipa/backup/xx
 # 如果你的证书系统（PKI）完好，只是 LDAP 数据（用户、组、策略）出了问题。
 ipa-restore  /var/lib/ipa/backup/ipa-full-2024-01-15-12-00-00.tar
 ```
+
 **每天定时备份**  
 - 把下面脚本放到 /usr/local/bin/ipa_backup_daily.sh  
 - 加入定时任务 /etc/crontab  
-```bash
+
+```shell 
 #!/bin/bash
 
 # echo '0 10 * * * root /bin/bash /usr/local/bin/ipa_backup_daily.sh  > /dev/null 2>&1' >> /etc/crontab
@@ -422,14 +424,14 @@ fi
 
 # 清理30天前的备份目录
 find "/var/lib/ipa/backup/" -maxdepth 1 -type d -name "ipa-data-*" -mtime +30 -exec rm -rf {} \; -exec echo "[$(date)] Deleted old backup: {}" \; >>/var/log/ipa_backup.log
-
 ```  
 
 ## 进程监控&自动重启
 **监控kdc 389ds keepalived进程，发现挂了主动重启**    
 - 脚本放到 /root/check_ds.sh  
 - 2分钟检查一次 echo "*/2 * * * * root /bin/bash /root/check_ds.sh  > /dev/null 2>&1"  >> /etc/crontab
-```bash
+
+```shell
 #!/bin/bash
 
 # 日志文件路径 touch /var/log/check-dirsrv.log

@@ -201,6 +201,41 @@ bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
 客户端从第一个 KDC 开始尝试,即使第一个kdc服务卡死了，但通过我们的keepalived检查脚本，会发现kinit不行了，就会立刻切换到另一台kdc服务，而不是让客户端一直处理卡顿状态，客户端无感知的，还是一样的连接vip的虚拟ip。    
 ![alt text](img/image-50.png)    
 
+### 查看keepavlied运行情况 
+Keepalived 可以通过 SIGUSR1 信号将当前的详细统计信息和节点状态转储到本地文件中。      
+```bash
+killall -USR1 keepalived
+root@ipa-70-10:/data/keep/kdc# ll /tmp/keepalived*
+-rw------- 1 root root 5228 Mar  2 11:45 /tmp/keepalived.data
+-rw------- 1 root root 1772 Mar  2 11:45 /tmp/keepalived_parent.data
+```
+cat /tmp/keepalived.data  
+...
+1. 核心状态解读
+State = BACKUP：当前 70.10 节点处于备用状态。
+Master router = 10.12.70.9：它探测到当前网络中的 Master（主节点）是 70.9。
+Master priority = 100：当前主节点（70.9）通告的优先级是 100。
+
+2. 优先级对比
+Priority = 90：这是你在配置文件里给 70.10 设置的初始优先级。
+Effective priority = 90：这是最关键的数值。它表示当前 70.10 的实际有效优先级。
+因为 90 < 100，所以 70.10 乖乖地当备机。
+Total priority = 90：总权重。
+
+3. 脚本执行状态在 
+------< VRRP Scripts >------ 这一节：
+VRRP Script = chk_kinit
+Status = GOOD：这意味着你的 chk_kinit.sh 脚本目前执行成功（返回 0）。
+Weight = -50：脚本配置了失败扣 50 分。
+分析：因为现在状态是 GOOD，所以没有扣分。如果脚本失败（变成 FAULT），你的 Effective priority 会立刻变成 90 - 50 = 40。
+
+4. 关键结论
+为什么现在 70.10 是备机？因为 70.10 的有效优先级（90）低于 Master 70.9 的优先级（100）。
+脚本工作正常吗？正常。Keepalived 已经成功识别了脚本，且目前脚本运行结果为“优秀”（GOOD）。
+如果主节点（70.9）挂了会发生什么？70.10 会接管 VIP。
+如果 70.10 变成主节点后脚本失败会发生什么？它的优先级会降到 40。如果此时 70.9 恢复了（优先级 100）或者有另一个优先级高于 40 的节点，VIP 就会被抢走。
+
+
 ## 扩展知识:HAProxy结合Keepalived
 - HAProxy和Keepalived是两个互补的组件，它们结合使用可以构建高可用、高性能的负载均衡解决方案。    
 - 这种可以通过ha-proxy服务来管理多个keepalived，ha-proxy分发流量管理,keeplived来实现自己的ip飘逸。    

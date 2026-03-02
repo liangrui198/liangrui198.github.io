@@ -12,6 +12,7 @@ date: 2026-02-13
 ## kdc架构
 ...待补充 
 
+
 ## 常用命令
 
 ```
@@ -102,7 +103,7 @@ systemctl restart certmonger
 systemctl restart pki-tomcatd.service
 systemctl restart apache2.service
 systemctl restart dirsrv@YYDEVOPS-COM.service
-
+systemctl restart krb5-kdc.service
 
 
 

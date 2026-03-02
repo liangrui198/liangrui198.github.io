@@ -164,6 +164,9 @@ ipa-client-install --domain=hiido.host.xx.com --realm=YYDEVOPS.COM --server=ipa-
 # admin工具
 apt-get install freeipa-admintools
 
+# 重装时需要先卸载
+ipa-client-install --uninstall
+
 ```
 ## 安装遇到的问题
 ### RUV 包含相同的 URL
@@ -435,6 +438,15 @@ changetype: modify
 replace: nsslapd-dncachememsize
 nsslapd-dncachememsize: 603979776
 EOF
+
+ldapmodify -x -H ldap://$(hostname):389 \
+  -D "cn=Directory Manager" -w $pass <<EOF
+dn: cn=ipaca,cn=ldbm database,cn=plugins,cn=config
+changetype: modify
+replace: nsslapd-cachememsize
+nsslapd-cachememsize: 536870912
+EOF
+
 ```
 
 验证配置  

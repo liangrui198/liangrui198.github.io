@@ -384,9 +384,8 @@ tailf /var/log/auth.log
 ns-slapd -v
 389 Project
 389-Directory/1.3.4.9 B2016.109.158
-
-
 ```
+
 ## 备份与恢复
 ```bash
 # 备份
@@ -397,6 +396,98 @@ ipa-restore   /var/lib/ipa/backup/xx
 
 # 如果你的证书系统（PKI）完好，只是 LDAP 数据（用户、组、策略）出了问题。
 ipa-restore  /var/lib/ipa/backup/ipa-full-2024-01-15-12-00-00.tar
+```
+**每天定时备份**  
+- 把下面脚本放到 /usr/local/bin/ipa_backup_daily.sh  
+- 加入定时任务 /etc/crontab  
+```bash
+#!/bin/bash
+
+# echo '0 10 * * * root /bin/bash /usr/local/bin/ipa_backup_daily.sh  > /dev/null 2>&1' >> /etc/crontab
+# chmod +x /usr/local/bin/ipa_backup_daily.sh
+
+# 获取当前时间戳
+TIMESTAMP=$(date +"%Y-%m-%d-%H-%M-%S")
+
+# 执行备份
+ipa-backup --data --online
+
+# 检查备份是否成功
+if [ $? -eq 0 ]; then
+  echo "[$(date)] Backup successful: /var/lib/ipa/backup/ipa-data-$TIMESTAMP" >/var/log/ipa_backup.log
+else
+  echo "[$(date)] Backup failed!" >>/var/log/ipa_backup.log
+  exit 1
+fi
+
+# 清理30天前的备份目录
+find "/var/lib/ipa/backup/" -maxdepth 1 -type d -name "ipa-data-*" -mtime +30 -exec rm -rf {} \; -exec echo "[$(date)] Deleted old backup: {}" \; >>/var/log/ipa_backup.log
+
+```  
+
+## 进程监控&自动重启
+**监控kdc 389ds keepalived进程，发现挂了主动重启**    
+- 脚本放到 /root/check_ds.sh  
+- 2分钟检查一次 echo "*/2 * * * * root /bin/bash /root/check_ds.sh  > /dev/null 2>&1"  >> /etc/crontab
+```bash
+#!/bin/bash
+
+# 日志文件路径 touch /var/log/check-dirsrv.log
+LOGFILE="/var/log/check-dirsrv.log"
+
+# 告警脚本路径（你已有的 Python 脚本） 告警逻辑根据自己的场景去编写，这里只参考传参
+ALERT_SCRIPT="/home/dspeak/xx.py"
+
+# 固定参数
+ID=45496
+SID=367116
+MSG_KEY=500
+#不同告警key sed -i  s/MSG_KEY=500/MSG_KEY=502/g /root/check_ds.sh
+
+# 检查 ns-slapd 进程是否存在
+if ! pgrep -x ns-slapd > /dev/null; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - dirsrv not running, restarting..." | tee -a "$LOGFILE"
+    /usr/sbin/start-dirsrv
+
+    # 发送告警
+    MESS="check dirsrv stopped  to auto started"
+    PARM_STR="op_admin_dw=dw_liangrui&id=${ID}&sid=${SID}&msg=${MESS}&msg_key=${MSG_KEY}"
+    CMD="python ${ALERT_SCRIPT} \"${PARM_STR}\""
+    eval $CMD
+else
+    # 检查日志条数
+    LINECOUNT=$(wc -l < "$LOGFILE" 2>/dev/null || echo 0)
+    if [ "$LINECOUNT" -gt 10000 ]; then
+        : > "$LOGFILE"   # 清空日志文件
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - logfile exceeded 10000 lines, cleared." >> "$LOGFILE"
+    fi
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - dirsrv is running." >> "$LOGFILE"
+fi
+
+if ! pgrep -x krb5kdc > /dev/null; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - dirsrv not running, restarting..." | tee -a "$LOGFILE"
+    systemctl start  krb5-kdc.service
+    # 发送告警
+    MESS="check krb5kdc stopped  to auto started"
+    PARM_STR="op_admin_dw=dw_liangrui&id=${ID}&sid=${SID}&msg=${MESS}&msg_key=$((MSG_KEY + 200))"
+    CMD="python ${ALERT_SCRIPT} \"${PARM_STR}\""
+    eval $CMD
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - krb5kdc is running." >> "$LOGFILE"
+fi
+
+if ! pgrep -x keepalived > /dev/null; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - keepalived not running, restarting..." | tee -a "$LOGFILE"
+    /usr/sbin/keepalived -f /etc/keepalived/keepalived.conf
+    # 发送告警
+    MESS="check keepalived stopped  to auto started"
+    PARM_STR="op_admin_dw=dw_liangrui&id=${ID}&sid=${SID}&msg=${MESS}&msg_key=$((MSG_KEY + 200))"
+    CMD="python ${ALERT_SCRIPT} \"${PARM_STR}\""
+    eval $CMD
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - keepalived is running." >> "$LOGFILE"
+fi
+
 ```
 
 ## 配置优化

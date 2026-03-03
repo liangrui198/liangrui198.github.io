@@ -19,9 +19,11 @@ author: liangrui
 下载：<a href="https://www.keepalived.org/download.html"> keepalived</a>
 
 **配置示例**
-```
+```bash
 global_defs {
    router_id keep_kinit
+   enable_script_security
+   script_user root
 }
 
 vrrp_script chk_kinit {
@@ -29,7 +31,7 @@ vrrp_script chk_kinit {
     script "/data/keep/script/chk_kinit.sh"    # 示例为检查sshd服务是否运行中
 
     interval 5         # 检查间隔时间
-    weight -50          # 检查失败降低的权重
+    weight -10          # 检查失败降低的权重
         rise 5                          # 成功多少次重新上线
         fall 2                          # 失败多少次标记为失败
         timeout 4                       # 脚本超时时间
@@ -61,6 +63,12 @@ vrrp_instance VI_1 {
 
         notify /data/keep/script/notify.sh
 }
+
+# 主要配置说明
+# virtual_ipaddress: vip 虚拟ip 也就是这个ip在同一个网段的virtual_router_id中做飘逸
+# virtual_router_id:  id相同的服务器之间为一个集群
+# priority weight: priority 谁大谁就是主节点，脚本执行返回1失败fall（2）次后-weight，例100-10 vip就会飘逸到priority=90的服务器上去
+  
 
 ```  
 说明： virtual_ipaddress:10.12.100.100 是VIP，可同时绑定到多台物理机，实现ip飘逸。通过自定检查脚本来控制权限，实现切换主从物理ip。    

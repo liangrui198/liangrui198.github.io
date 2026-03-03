@@ -1,5 +1,7 @@
 // ...existing code...
 // 图片点击放大功能，适用于所有博客正文图片
+
+// 图片点击弹窗+放大缩小功能，适用于所有正文图片
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('article img, .blog-content img, img').forEach(function(img) {
     if (img.classList.contains('no-popup')) return;
@@ -8,7 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
       if (img.closest('.img-popup-mask')) return;
       var mask = document.createElement('div');
       mask.className = 'img-popup-mask';
-      // 简单样式，建议将样式移到 CSS 文件中
       mask.style.position = 'fixed';
       mask.style.left = 0;
       mask.style.top = 0;
@@ -20,16 +21,54 @@ document.addEventListener('DOMContentLoaded', function() {
       mask.style.justifyContent = 'center';
       mask.style.zIndex = 9999;
 
+      var box = document.createElement('div');
+      box.style.position = 'relative';
+
       var big = document.createElement('img');
       big.src = img.src;
-      big.style.maxWidth = '95%';
-      big.style.maxHeight = '95%';
+      big.style.maxWidth = '95vw';
+      big.style.maxHeight = '80vh';
       big.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
-      big.style.cursor = 'zoom-out';
+      big.style.cursor = 'grab';
+      big.style.transition = 'transform 0.2s';
+      big.style.transform = 'scale(1)';
 
-      mask.appendChild(big);
-      mask.addEventListener('click', function() { document.body.removeChild(mask); });
+      let scale = 1;
+      function setScale(s) {
+        scale = Math.max(0.2, Math.min(s, 5));
+        big.style.transform = 'scale(' + scale + ')';
+      }
+
+      // 鼠标滚轮缩放
+      big.addEventListener('wheel', function(ev) {
+        ev.preventDefault();
+        setScale(scale + (ev.deltaY < 0 ? 0.1 : -0.1));
+      });
+
+      // 按钮缩放
+      var btns = document.createElement('div');
+      btns.style.position = 'absolute';
+      btns.style.top = '10px';
+      btns.style.right = '10px';
+      btns.style.zIndex = 2;
+      btns.innerHTML = '<button style="margin-right:5px;" title="放大">＋</button>' +
+        '<button style="margin-right:5px;" title="缩小">－</button>' +
+        '<button title="关闭">✕</button>';
+      var plusBtn = btns.children[0];
+      var minusBtn = btns.children[1];
+      var closeBtn = btns.children[2];
+      plusBtn.onclick = function(ev){ ev.stopPropagation(); setScale(scale+0.2); };
+      minusBtn.onclick = function(ev){ ev.stopPropagation(); setScale(scale-0.2); };
+      closeBtn.onclick = function(ev){ ev.stopPropagation(); document.body.removeChild(mask); };
+
+      box.appendChild(big);
+      box.appendChild(btns);
+      mask.appendChild(box);
+      mask.addEventListener('click', function(e) {
+        if (e.target === mask) document.body.removeChild(mask);
+      });
       document.body.appendChild(mask);
+      setScale(1);
     });
   });
 });

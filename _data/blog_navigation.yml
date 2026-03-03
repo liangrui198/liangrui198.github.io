@@ -26,14 +26,14 @@
               url: /blog/bigdata/ops/scm.html 
         - title: KDC
           children:
-            - title: ipa服务安装
-              url: /blog/bigdata/hadoop/kdc/kdc-install.html
-            - title: ipa证书修复
-              url: /blog/bigdata/hadoop/kdc/kdc-cert.html
             - title: hadoop集成kerberos
               url: /blog/bigdata/hadoop/kdc/kdc-arch.html
+            - title: ipa服务安装
+              url: /blog/bigdata/hadoop/kdc/kdc-install.html
             - title: KDC实现HA
-              url: /blog/bigdata/ops/keepalivedHA.html
+              url: /blog/bigdata/ops/keepalivedHA.html  
+            - title: ipa证书修复
+              url: /blog/bigdata/hadoop/kdc/kdc-cert.html
             - title: keytab文件恢复
               url: /blog/bigdata/ops/recover_keytab.html    
                       

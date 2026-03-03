@@ -384,6 +384,43 @@ tailf /var/log/auth.log
 ns-slapd -v
 389 Project
 389-Directory/1.3.4.9 B2016.109.158
+
+# 调式 主要是查看他访问具体ip的kdc信息
+# 有时候kdc会用这个里面的ip去认证 /var/lib/sss/pubconf/kdcinfo.xx.COM,而不是/etc/krb5.conf里的ip，
+# 是因为安装了sssd服务读取  /etc/sssd/sssd.conf
+KRB5_TRACE=/dev/stdout kinit admin
+
+# strace 调试执行栈信息
+strace kinit admin
+
+# hadoop 相关 如果有认证相关问题可以做以下调试
+# keytab 诊断环境
+hadoop kdiag
+hadoop kdiag --keytab zk.service.keytab --principal zookeeper/devix.example.org@REALM > out.txt 2>&1
+# 查看认证信息
+hadoop org.apache.hadoop.security.UserGroupInformation
+# hadoop开启jass debug
+export HADOOP_JAAS_DEBUG=true
+export HADOOP_OPTS="-Dsun.security.krb5.debug=true -Dsun.security.spnego.debug=true"
+-Dsun.security.krb5.debug=true -Dsun.security.spnego.debug=true
+# hadoop查看debug 信息 
+hdfs --loglevel DEBUG dfs -ls /tmp
+export HADOOP_ROOT_LOGGER=hadoop.root.logger=Debug,console
+
+# 增加远程调试
+export HADOOP_OPTS="$HADOOP_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5006"
+hadoop  jar hdfs-client-op-1.0-SNAPSHOT.jar HdfsRetryTest
+socat TCP-LISTEN:5006,fork,reuseaddr TCP:10.62.22.45:5006
+socat TCP-LISTEN:5006,fork,reuseaddr TCP:10.12.69.204:5006
+
+# nodemanger 远程调试
+export YARN_NODEMANAGER_OPTS="$YARN_NODEMANAGER_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+/usr/hdp/3.1.0.0-78/hadoop-yarn/bin/yarn --config /usr/hdp/3.1.0.0-78/hadoop/conf --daemon start nodemanager
+
+# hadoop jar 远程调试
+export HADOOP_CLIENT_OPTS="$HADOOP_CLIENT_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+hadoop --debug  jar      hdfs-client-op-1.0-SNAPSHOT.jar  
+
 ```
 
 ## 备份与恢复

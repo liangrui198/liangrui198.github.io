@@ -641,6 +641,36 @@ start-dirsrv
 cat /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif| grep sslapd-maxdescriptors
 
 ```
+### KDC优化
+**ubuntu16.04 freeipa4.3中优化,4.3默认是单进程，kdc需要多进程来提升并发**   
+**文档参考**
+<a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/tuning_performance_in_identity_management/assembly_adjusting-the-performance-of-the-kdc_tuning-performance-in-idm#proc_adjusting-the-length-of-the-kdc-listen-queue_assembly_adjusting-the-performance-of-the-kdc">proc_adjusting-the-length-of-the-kdc-listen-queue_assembly_adjusting-the-performance-of-the-kdc</a>  
+
+<a href="https://docs.redhat.com/zh-cn/documentation/red_hat_enterprise_linux/10/html/tuning_performance_in_identity_management/adjusting-the-number-of-krb5kdc-processes  ">adjusting-the-number-of-krb5kdc-processes</a> 
+
+```shell
+#查看版本
+dpkg -l | grep krb5-kdc
+
+root@ipa-70-6:/var/log# mkdir -p /etc/systemd/system/krb5-kdc.service.d/
+root@ipa-70-6:/var/log# vi /etc/systemd/system/krb5-kdc.service.d/performance.conf
+root@ipa-70-6:/var/log# 
+root@ipa-70-6:/var/log# 
+root@ipa-70-6:/var/log# cat /etc/systemd/system/krb5-kdc.service.d/performance.conf
+[Service]
+ExecStart=
+ExecStart=/usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
+
+root@ipa-70-6:/var/log# systemctl daemon-reload
+root@ipa-70-6:/var/log# systemctl restart krb5-kdc
+root@ipa-70-6:/var/log# ps -ef | grep krb5kdc
+root     12736     1  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
+root     12737 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
+root     12738 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
+root     12739 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
+root     12740 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
+
+```
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>

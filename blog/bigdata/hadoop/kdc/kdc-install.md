@@ -665,13 +665,14 @@ sed -i  s/24/16/g /etc/systemd/system/krb5-kdc.service.d/performance.conf
 # 重启krb5
 systemctl daemon-reload
 systemctl restart krb5-kdc
-# 查看
+# 查看 一共有25个进程，其中一个1是总进程负责调度子进程，不参与业务
 ps -ef | grep krb5kdc
-root     12736     1  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
-root     12737 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
-root     12738 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
-root     12739 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
-root     12740 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 20
+root     12736     1  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 24
+root     12737 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 24
+root     12738 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 24
+root     12739 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 24
+root     12740 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/krb5-kdc.pid -w 24
+...
 
 # 观察cpu中中断和上下文切换的情况 
 # 观察 cs (context switches) 和 in (interrupts) 字段。如果数值在认证高峰期突然飙升到数十万，说明进程数可能设多了；
@@ -679,6 +680,21 @@ root     12740 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/kr
 vmstat 1
 
 ```
+### 构建冗余环形拓扑
+为了实现任意单节点宕机时仍能保持全网同步，你需要：增加关键节点之间的复制关系   
+可以通过页面或freeipa命令查看当前的默认topologysegment    
+`ipa topologysegment-find    ` 
+然后找出单点的节点，进行增加复制节点    
+```shell
+ipa topologysegment-add domain ipa-70-2.hiido.host.int.yy.com-to-ipa-70-3.hiido.host.int.yy.com --left ipa-70-2.hiido.host.int.yy.com --right ipa-70-3.hiido.host.int.yy.com --direction=both
+
+.....
+
+# 行完后，使用以下命令确认拓扑是否连通：
+ipa topologysegment-verify domain
+
+```  
+
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>

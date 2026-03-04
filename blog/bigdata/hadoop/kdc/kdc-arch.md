@@ -8,6 +8,7 @@ date: 2026-02-13
 ---
 
 # hadoop集成kerberos认证
+<a href="https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SecureMode.html">hadoop安全 Hadoop in Secure Mode</a>    
 
 ## kerberos服务环境架构
 FreeIPA 是一个集成的身份管理解决方案，结合了 Linux 原生工具和协议（LDAP、Kerberos、DNS、PKI 等）。下面首先解释 ipactl status 列出的服务以及 certmonger 的作用，然后通过一个流程图展示申请 keytab 文件和利用 keytab 进行 Kerberos 认证的完整流程。  
@@ -63,6 +64,8 @@ pass = xx
 
 # 检查复制状态 nsds5replicaLastUpdateStatus   
 ldapsearch -LLL -x -H ldap://localhost:389     -D "cn=Directory Manager" -w $pass     -b "cn=replica,cn=dc\3Dyydevops\2Cdc\3Dcom,cn=mapping tree,cn=config"    "(objectClass=nsds5ReplicationAgreement)" cn nsDS5ReplicaHost nsds5replicaLastUpdateStatus
+
+ldapsearch -x -D "cn=Directory Manager" -w $pass    -b "cn=monitor"
 
 # 查看topologysegment
 ipa topologysegment-find 

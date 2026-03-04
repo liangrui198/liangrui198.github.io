@@ -463,9 +463,10 @@ systemctl restart pki-tomcatd.service
 ```bash
 # 停止pki tracking证书
 getcert stop-tracking -i 20260xxx
-#重新启用pki tracking证书
+# 重新启用pki tracking证书
 getcert start-tracking -d /etc/pki/pki-tomcat/alias -n <cert-name> -P <pwd> -c dogtag-ipa-ca-renew-agent
-
+# 续期
+ipa-getcert resubmit -i REQUEST_ID  
 ```
 
 <div class="post-date">
@@ -487,3 +488,8 @@ getcert start-tracking -d /etc/pki/pki-tomcat/alias -n <cert-name> -P <pwd> -c d
 
  <script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
+<!--评论区-->
+<div id="giscus-comments" style="max-width:900px;margin:2em auto 0 auto;padding:0 1em;"></div>
+<script>
+  insertGiscusComment('giscus-comments');
+</script>

@@ -188,3 +188,8 @@ echo $active_nn > /data/hdfs/check_state/active_nn.state
 
  <script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
+<!--评论区-->
+<div id="giscus-comments" style="max-width:900px;margin:2em auto 0 auto;padding:0 1em;"></div>
+<script>
+  insertGiscusComment('giscus-comments');
+</script>

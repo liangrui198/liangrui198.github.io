@@ -1137,3 +1137,8 @@ object ReadEsJosnFile {
     <button class="collapse-btn" onclick="toggleBlogNav()">☰</button>
     {% include blog_navigation.html items=site.data.blog_navigation %}
 </nav>
+<!--评论区-->
+<div id="giscus-comments" style="max-width:900px;margin:2em auto 0 auto;padding:0 1em;"></div>
+<script>
+  insertGiscusComment('giscus-comments');
+</script>

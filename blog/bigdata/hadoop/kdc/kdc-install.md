@@ -690,7 +690,7 @@ ipa topologysegment-add domain ipa-70-2.hiido.host.int.yy.com-to-ipa-70-3.hiido.
 
 .....
 
-# 行完后，使用以下命令确认拓扑是否连通：
+# 执行完后，使用以下命令确认拓扑是否连通：
 ipa topologysegment-verify domain
 
 ```  
@@ -715,3 +715,9 @@ ipa topologysegment-verify domain
 
  <script src="/assets/blog.js"></script>
 <link rel="stylesheet" href="/assets/blog.css">
+
+<!--评论区-->
+<div id="giscus-comments" style="max-width:900px;margin:2em auto 0 auto;padding:0 1em;"></div>
+<script>
+  insertGiscusComment('giscus-comments');
+</script>

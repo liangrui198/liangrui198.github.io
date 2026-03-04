@@ -366,3 +366,28 @@ document.addEventListener('DOMContentLoaded', function() {
   handleResize();
 });
 
+function insertGiscusComment(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) {
+        // 如果没有指定容器，则自动在 body 最后插入
+        container = document.createElement('div');
+        container.id = 'giscus-comments';
+        document.body.appendChild(container);
+    }
+    var script = document.createElement('script');
+    script.src = 'https://giscus.app/client.js';
+    script.setAttribute('data-repo', 'liangrui198/liangrui198.github.io');
+    script.setAttribute('data-repo-id', 'R_kgDOPMLglw');
+    script.setAttribute('data-category', 'Show and tell');
+    script.setAttribute('data-category-id', 'DIC_kwDOPMLgl84CtH7_');
+    script.setAttribute('data-mapping', 'pathname');
+    script.setAttribute('data-strict', '0');
+    script.setAttribute('data-reactions-enabled', '1');
+    script.setAttribute('data-emit-metadata', '0');
+    script.setAttribute('data-input-position', 'bottom');
+    script.setAttribute('data-theme', 'preferred_color_scheme');
+    script.setAttribute('data-lang', 'zh-CN');
+    script.setAttribute('crossorigin', 'anonymous');
+    script.async = true;
+    container.appendChild(script);
+}

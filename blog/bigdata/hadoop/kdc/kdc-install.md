@@ -642,6 +642,7 @@ cat /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif| grep sslapd-maxdescriptors
 
 ```
 ### KDC优化
+#### 增加进程
 **ubuntu16.04 freeipa4.3中优化,4.3默认是单进程，kdc需要多进程来提升并发**   
 **文档参考**   
 1：<a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/tuning_performance_in_identity_management/assembly_adjusting-the-performance-of-the-kdc_tuning-performance-in-idm#proc_adjusting-the-length-of-the-kdc-listen-queue_assembly_adjusting-the-performance-of-the-kdc">proc_adjusting-the-length-of-the-kdc-listen-queue_assembly_adjusting-the-performance-of-the-kdc</a>    
@@ -680,6 +681,80 @@ root     12740 12736  0 12:10 ?        00:00:00 /usr/sbin/krb5kdc -P /var/run/kr
 vmstat 1
 
 ```
+#### 每个域控制KDC行为的选项（原生MIT KDC的配置）
+为了跟踪每个 Kerberos 域的锁定和解锁用户帐户，KDC 会在每个成功和身份验证失败后写入其数据库。   
+通过调整 /etc/krb5.conf (ubuntu:/etc/krb5kdc/kdc.conf )文件的 [dbmodules] 部分中的以下选项，您可以最大程度减少 KDC 写入信息的频率来提高性能。     
+disable_last_success 如果设置为 true，这个选项会阻止 KDC 更新到需要预身份验证的主条目的 Last successful authentication 字段。 
+
+```conf
+[dbmodules]
+    YOUR-REALM.COM = {
+        disable_last_success = true
+    }
+```
+disable_lockout 如果设置为 true，这个选项会阻止 KDC 更新到需要预身份验证的主条目的 Last failed authentication 和 Failed password attempts 字段。设置此标志可能会提高性能，但禁用帐户锁定可能会被视为安全风险。
+
+#### 每个域控制KDC行为的选项（freeipa 的配置）
+freeipa某些配置是自己实现的，基于db_library = ipadb.so    
+补丁: <a href="https://bugzilla.redhat.com/show_bug.cgi?id=824488">https://bugzilla.redhat.com/show_bug.cgi?id=824488</a>  
+配置修改    
+```shell 
+
+#查询 
+ipa config-show | grep "Password plugin features"
+ Password plugin features: AllowNThash
+
+ldapsearch -LLL -x -H ldap://localhost:389   -D "cn=Directory Manager" -w $pass  -b "cn=ipaConfig,cn=etc,dc=yydevops,dc=com"  ipaConfigString
+ipaConfigString: AllowNThash
+
+
+# 修改
+ipa config-mod --ipaconfigstring="AllowNThash" --ipaconfigstring="KDC:Disable Last Success"
+#验证配置
+ipa config-show | grep "Password plugin features"
+  Password plugin features: AllowNThash, KDC:Disable Last Success
+
+# 重启kdc
+systemctl restart krb5-kdc
+#验证是否生效
+ ipa user-show dw_liangrui2 --all  | grep krblastsuccessfulauth
+  krblastsuccessfulauth: 20260305020601Z
+
+#执行keytab login
+kinit -kt dw_liangrui2.keytab dw_liangrui2
+
+#用记没有记录最近登录时间，配置已生效
+ ipa user-show dw_liangrui2 --all  | grep krblastsuccessfulauth
+  krblastsuccessfulauth: 20260305020601Z
+
+```
+
+
+#### 调整 KDC 侦听队列的长度 （原生MIT KDC的配置）
+您可以通过在 /var/kerberos/krb5kdc/kdc.conf (ubuntu:/etc/krb5kdc/kdc.conf)   
+文件的 [kdcdefaults] 部分中设置 kdc_tcp_listen_backlog 选项来调整用于 KDC 守护进程的监听队列长度的大小。    
+对于某些有大量 Kerberos 流量的 IdM 部署，默认值 5 可能太低，但如果设置的值太高会降低性能。  
+
+查看当前的 kdc_tcp_listen_backlog值   
+```shell
+ss -lnt sport = :88
+
+State       Recv-Q Send-Q        Local Address:Port                                                 Peer Address:Port              
+LISTEN      0      5                  *:88                                                           *:*   
+...      
+# Send-Q 5说明默认是5         
+```
+
+```conf
+# 修改配置   
+[kdcdefaults]
+ ...
+   kdc_tcp_listen_backlog = 10
+```
+
+
+
+
 ### 构建冗余环形拓扑
 为了实现任意单节点宕机时仍能保持全网同步，你需要：增加关键节点之间的复制关系   
 可以通过页面或freeipa命令查看当前的默认topologysegment    

@@ -696,17 +696,17 @@ disable_lockout 如果设置为 true，这个选项会阻止 KDC 更新到需要
 
 #### 每个域控制KDC行为的选项（freeipa 的配置）
 freeipa某些配置是自己实现的，基于db_library = ipadb.so    
-补丁: <a href="https://bugzilla.redhat.com/show_bug.cgi?id=824488">https://bugzilla.redhat.com/show_bug.cgi?id=824488</a>  
-配置修改    
-```shell 
+相关补丁: <a href="https://bugzilla.redhat.com/show_bug.cgi?id=824488">https://bugzilla.redhat.com/show_bug.cgi?id=824488</a>  
+<a href="https://pagure.io/freeipa/issue/5313">https://pagure.io/freeipa/issue/5313</a>   
+配置修改  
 
+```shell 
 #查询 
 ipa config-show | grep "Password plugin features"
  Password plugin features: AllowNThash
 
 ldapsearch -LLL -x -H ldap://localhost:389   -D "cn=Directory Manager" -w $pass  -b "cn=ipaConfig,cn=etc,dc=yydevops,dc=com"  ipaConfigString
 ipaConfigString: AllowNThash
-
 
 # 修改
 ipa config-mod --ipaconfigstring="AllowNThash" --ipaconfigstring="KDC:Disable Last Success"

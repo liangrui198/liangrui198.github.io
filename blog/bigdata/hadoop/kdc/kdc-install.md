@@ -723,7 +723,7 @@ systemctl restart krb5-kdc
 #执行keytab login
 kinit -kt dw_liangrui2.keytab dw_liangrui2
 
-#用记没有记录最近登录时间，配置已生效
+#用户没有记录最近登录时间，配置已生效
  ipa user-show dw_liangrui2 --all  | grep krblastsuccessfulauth
   krblastsuccessfulauth: 20260305020601Z
 
@@ -751,8 +751,100 @@ LISTEN      0      5                  *:88                                      
  ...
    kdc_tcp_listen_backlog = 10
 ```
+#### nsswitch本地用户频繁查找389ds问题
+问题描述: 服从偶尔会卡顿，卡顿后虽然做了HA，会切到从节点上，但这个问题还是需要解决一下。  
+kdc服务日志显示Unspecified GSS failure       
+```log
+Mar  6 15:16:08 ipa-78-172 ns-slapd: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM')
+Mar  6 15:16:35 ipa-78-172 ns-slapd: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM')
+Mar  6 15:17:02 ipa-78-172 ns-slapd: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM')
+```  
+389ds日志显示 Cannot contact any KDC for realm 'YYDEVOPS.COM'   
+/var/log/dirsrv/slapd-xx-COM/error  
 
+```log 
+[06/Mar/2026:15:16:35 +0800] slapd_ldap_sasl_interactive_bind - Error: could not perform interactive bind for id [] mech [GSSAPI]: LDAP error -2 (Local error) (SASL(-1): generic failure: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM')) errno 115 (Operation now in progress)
+[06/Mar/2026:15:16:35 +0800] slapi_ldap_bind - Error: could not perform interactive bind for id [] authentication mechanism [GSSAPI]: error -2 (Local error)
+[06/Mar/2026:15:16:35 +0800] NSMMReplicationPlugin - agmt="cn=ipa-78-172.hiido.host.xx.xx.com-to-ipa-ca-70-11.hiido.host.xx.xx.com" (ipa-ca-70-11:389): Replication bind with GSSAPI auth failed: LDAP error -2 (Local error) (SASL(-1): generic failure: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM'))
+[06/Mar/2026:15:17:02 +0800] slapd_ldap_sasl_interactive_bind - Error: could not perform interactive bind for id [] mech [GSSAPI]: LDAP error -2 (Local error) (SASL(-1): generic failure: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM')) errno 115 (Operation now in progress)
+[06/Mar/2026:15:17:02 +0800] slapi_ldap_bind - Error: could not perform interactive bind for id [] authentication mechanism [GSSAPI]: error -2 (Local error)
+[06/Mar/2026:15:17:02 +0800] slapd_ldap_sasl_interactive_bind - Error: could not perform interactive bind for id [] mech [GSSAPI]: LDAP error -2 (Local error) (SASL(-1): generic failure: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM')) errno 115 (Operation now in progress)
+[06/Mar/2026:15:17:02 +0800] slapi_ldap_bind - Error: could not perform interactive bind for id [] authentication mechanism [GSSAPI]: error -2 (Local error)
+[06/Mar/2026:15:17:02 +0800] NSMMReplicationPlugin - agmt="cn=ipa-78-172.hiido.host.xx.xx.com-to-ipa-70-10.hiido.host.xx.xx.com" (ipa-70-10:389): Replication bind with GSSAPI auth failed: LDAP error -2 (Local error) (SASL(-1): generic failure: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM'))
+[06/Mar/2026:15:17:02 +0800] NSMMReplicationPlugin - agmt="cn=meToipa-78-184.hiido.host.xx.xx.com" (ipa-78-184:389): Replication bind with GSSAPI auth failed: LDAP error -2 (Local error) (SASL(-1): generic failure: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot contact any KDC for realm 'YYDEVOPS.COM'))
+[06/Mar/2026:15:17:05 +0800] NSMMReplicationPlugin - agmt="cn=ipa-78-172.hiido.host.xx.xx.com-to-ipa-70-10.hiido.host.xx.xx.com" (ipa-70-10:389): Replication bind with GSSAPI auth resumed
+[06/Mar/2026:15:17:05 +0800] NSMMReplicationPlugin - agmt="cn=ipa-78-172.hiido.host.xx.xx.com-to-ipa-ca-70-11.hiido.host.xx.xx.com" (ipa-ca-70-11:389): Replication bind with GSSAPI auth resumed
+[06/Mar/2026:15:17:05 +0800] NSMMReplicationPlugin - agmt="cn=meToipa-78-184.hiido.host.xx.xx.com" (ipa-78-184:389): Replication bind with GSSAPI auth resumed
+```
+这些日志看上去节点在复制或kinit时无法正常登录或复制，原因是kdc认证异常，并没有看到明确的问题，再看看389ds这个时间到低在做什么  
+/var/log/dirsrv/slapd-YYDEVOPS-COM/access   
+```log
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=26 SRCH base="cn=accounts,dc=yydevops,dc=com" scope=2 filter="(&(uid=liangrui06)..."
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=26 RESULT err=0 tag=101 nentries=0 etime=0
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=27 SRCH base="cn=accounts,dc=yydevops,dc=com" scope=2 filter="(&(uid=liangrui06)..."
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=27 RESULT err=0 tag=101 nentries=0 etime=0
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=28 SRCH base="cn=accounts,dc=yydevops,dc=com" scope=2 filter="(&(uid=liupeiyue)......"
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=29 RESULT err=0 tag=101 nentries=0 etime=0
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=30 SRCH base="cn=accounts,dc=yydevops,dc=com" scope=2 filter="(&(uid=huangzan)..."
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=30 RESULT err=0 tag=101 nentries=0 etime=0
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=31 SRCH base="cn=accounts,dc=yydevops,dc=com" scope=2 filter="(&(uid=xieyu09)..."
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=31 RESULT err=0 tag=101 nentries=0 etime=0
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=32 SRCH base="cn=accounts,dc=yydevops,dc=com" scope=2 filter="(&(uid=huangxiangjun02)..."
+[06/Mar/2026:15:40:06 +0800] conn=1884 op=32 RESULT err=0 tag=101 nentries=0 etime=0
+[06/Mar/2026:15:40:09 +0800] conn=645 op=127707 SRCH base="dc=yydevops,dc=com" scope=2 filter="(&(|(objectClass=krbprincipalaux)(objectClass=krbprincipal))(krbPrincipalName=dev_op@YYDEVOPS.COM))" attrs="krbPrincipalName krbCanonicalName ipaKrbPrincipalAlias krbUPEnabled krbPrincipalKey krbTicketPolicyReference krbPrincipalExpiration krbPasswordExpiration krbPwdPolicyReference krbPrincipalType krbPwdHistory krbLastPwdChange krbPrincipalAliases krbLastSuccessfulAuth krbLastFailedAuth krbLoginFailedCount krbExtraData krbLastAdminUnlock krbObjectReferences krbTicketFlags krbMaxTicketLife krbMaxRenewableAge nsAccountLock passwordHistory ipaKrbAuthzData ipaUserAuthType ipatokenRadiusConfigLink objectClass"
+...
 
+-- 这个用户不存在freeipa中，但是他会一直重复在389ds中查找  
+grep liangrui06  access | wc -l
+567
+```       
+看到一些本地的用户信息?并且这些用户也不在ipa用户中， ipa user-show liangrui06 完全没有？ 这是什么鬼逻辑    
+打开 cat /etc/nsswitch.conf   才知道问题，这个玩意是本地Name Service Switch服务，本地用户操作，他也会去sssd服务中找到信息，sssd再去389ds中查找用户，但每次都查不到，cache中也不会有这个信息，就一直反复查找，在遇到节点复制的时候可能会有冲突，导致卡顿了。    
+```shell
+# /etc/nsswitch.conf
+passwd:         compat sss
+group:          compat sss
+shadow:         compat sss
+gshadow:        files
+
+hosts:          files dns
+networks:       files
+
+protocols:      db files
+services:       db files sss
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis sss
+sudoers: files sss
+```
+**解决方案1**   
+```shell 
+# 修改nsswitch
+sed -i s/'compat sss'/'files [success=return] sss'/g /etc/nsswitch.conf
+sed -i s/'sudoers: files sss'/'sudoers: files [success=return] sss'/g /etc/nsswitch.conf
+
+```
+**解决方案2**   
+这个需要保证filter_users确实不存在freeipa中，不然会彻底屏蔽掉这些用户     
+```shell 
+/etc/sssd/sssd.conf
+[nss]
+homedir_substring = /home
+# 显式忽略这些本地用户（多个用户用逗号隔开）
+filter_users = root,liangrui06,liupeiyue,hujinli,huangzan,huangxiangjun02,xieyu09
+# 显式忽略本地组
+filter_groups = execute,liangrui06
+
+# 清理cache 
+sss_cache -E
+#或
+systemctl stop sssd
+rm -f /var/lib/sss/db/*
+
+# 重启ssd
+systemctl restart sssd
+```
 
 
 ### 构建冗余环形拓扑

@@ -794,12 +794,20 @@ Mar  6 15:17:02 ipa-78-172 ns-slapd: GSSAPI Error: Unspecified GSS failure.  Min
 [06/Mar/2026:15:40:09 +0800] conn=645 op=127707 SRCH base="dc=yydevops,dc=com" scope=2 filter="(&(|(objectClass=krbprincipalaux)(objectClass=krbprincipal))(krbPrincipalName=dev_op@YYDEVOPS.COM))" attrs="krbPrincipalName krbCanonicalName ipaKrbPrincipalAlias krbUPEnabled krbPrincipalKey krbTicketPolicyReference krbPrincipalExpiration krbPasswordExpiration krbPwdPolicyReference krbPrincipalType krbPwdHistory krbLastPwdChange krbPrincipalAliases krbLastSuccessfulAuth krbLastFailedAuth krbLoginFailedCount krbExtraData krbLastAdminUnlock krbObjectReferences krbTicketFlags krbMaxTicketLife krbMaxRenewableAge nsAccountLock passwordHistory ipaKrbAuthzData ipaUserAuthType ipatokenRadiusConfigLink objectClass"
 ...
 
--- 这个用户不存在freeipa中，但是他会一直重复在389ds中查找  
+# 这个用户不存在freeipa中，但是他会一直重复在389ds中查找  
 grep liangrui06  access | wc -l
 567
+
+# 看看那个ip在搞事情
+# grep 'conn=1884 fd=' access
+[06/Mar/2026:18:10:03 +0800] conn=79 fd=1884 slot=1884 connection from 10.12.66.242 to 10.12.78.184
+
+# 原来是ambari
+# 破案了！Ambari Server 正是导致 389ds 查询泛滥的根源
+
 ```       
 看到一些本地的用户信息?并且这些用户也不在ipa用户中， ipa user-show liangrui06 完全没有？ 这是什么鬼逻辑    
-打开 cat /etc/nsswitch.conf   才知道问题，这个玩意是本地Name Service Switch服务，本地用户操作，他也会去sssd服务中找到信息，sssd再去389ds中查找用户，但每次都查不到，cache中也不会有这个信息，就一直反复查找，在遇到节点复制的时候可能会有冲突，导致卡顿了。    
+打开 cat /etc/nsswitch.conf   才知道问题，这个玩意是本地Name Service Switch服务(系统查询用户服务)，本地用户操作，他也会去sssd服务中找到信息，sssd再去389ds中查找用户，但每次都查不到，cache中也不会有这个信息，就一直反复查找，在遇到节点复制的时候可能会有冲突，导致卡顿了。    
 ```shell
 # /etc/nsswitch.conf
 passwd:         compat sss
@@ -818,23 +826,23 @@ rpc:            db files
 netgroup:       nis sss
 sudoers: files sss
 ```
-**解决方案1**   
+**解决方案1: nsswitch配置优化**   
 ```shell 
 # 修改nsswitch
 sed -i s/'compat sss'/'files [success=return] sss'/g /etc/nsswitch.conf
 sed -i s/'sudoers: files sss'/'sudoers: files [success=return] sss'/g /etc/nsswitch.conf
 
 ```
-**解决方案2**   
-这个需要保证filter_users确实不存在freeipa中，不然会彻底屏蔽掉这些用户     
+**2:sssd中排除本地用户**   
+这个需要保证filter_users确实不存在freeipa中，不然会彻底屏蔽掉这些用户，根据自己本地情况写     
 ```shell 
 /etc/sssd/sssd.conf
 [nss]
 homedir_substring = /home
 # 显式忽略这些本地用户（多个用户用逗号隔开）
-filter_users = root,liangrui06,liupeiyue,hujinli,huangzan,huangxiangjun02,xieyu09
 # 显式忽略本地组
-filter_groups = execute,liangrui06
+filter_users = root,user_00,user_01,user_02,yuwanfu,backup,dspeak,,huangxiangjun02,huangzan,hujinli,liangrui06,liangrui,liupeiyue,xieyu09
+filter_groups = root,execute,user_00,user_01,user_02,backup,dspeak,,huangxiangjun02,huangzan,hujinli,liangrui06,liangrui,liupeiyue,xieyu09
 
 # 清理cache 
 sss_cache -E
@@ -845,6 +853,15 @@ rm -f /var/lib/sss/db/*
 # 重启ssd
 systemctl restart sssd
 ```
+**全库查询的问题**
+uid=\2A 这是uid=*的意思, conn=3708是本地操作的，是sssd服务本身事件引起的    
+```
+[09/Mar/2026:14:36:11 +0800] conn=3708 op=35 SRCH base="cn=accounts,dc=yydevops,dc=com" scope=2 filter="(&(uid=\2A)(objectClass=posixAccount)(uid=*) .......
+```
+原因可能是，如果出现很频繁，需要排查其它原因         
+1：组解析（Group Membership Expansion）  
+2：服务启动/数据库重建    
+
 
 
 ### 构建冗余环形拓扑

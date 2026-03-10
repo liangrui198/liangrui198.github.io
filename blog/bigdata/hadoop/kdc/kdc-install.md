@@ -884,6 +884,10 @@ enumerate = False
 entry_cache_timeout = 43200
 entry_cache_group_timeout = 21600
 entry_cache_sudo_timeout = 21600
+ignore_group_members = True
+#ignore_group_members  忽略那些无法解析的组（防止 SSSD 钻牛角尖） SSSD 仅检索组对象本身的信息，而不检索其成员的信息，从而显著提升性能
+#ldap_group_nesting_level  如果 ldap_schema 设置为支持嵌套组的模式格式 开启增量搜索，防止 SSSD 每次都拉取整个组的成员 默认值：2
+ldap_group_nesting_level = 2 
 [nss]
 ...
 # 增加内存缓存的大小（提高 getpwnam 的响应速度）
@@ -891,11 +895,16 @@ entry_cache_sudo_timeout = 21600
 # Option memcache_size_group DEFAULT VALUE: 6
 memcache_size_passwd = 512
 memcache_size_group = 128
-ignore_group_members = True
-#ignore_group_members  忽略那些无法解析的组（防止 SSSD 钻牛角尖） SSSD 仅检索组对象本身的信息，而不检索其成员的信息，从而显著提升性能
-#ldap_group_nesting_level  如果 ldap_schema 设置为支持嵌套组的模式格式 开启增量搜索，防止 SSSD 每次都拉取整个组的成员 默认值：2
-ldap_group_nesting_level = 2 
 ```  
+**最后检查389ds是否还有压力**   
+```shell
+grep etime= /var/log/dirsrv/slapd-YYDEVOPS-COM/access | tail -n 100
+[10/Mar/2026:15:13:58 +0800] conn=6265 op=274724 RESULT err=0 tag=101 nentries=1 etime=0
+[10/Mar/2026:15:13:58 +0800] conn=6265 op=274725 RESULT err=0 tag=101 nentries=1 etime=0
+[10/Mar/2026:15:13:58 +0800] conn=6265 op=274726 RESULT err=0 tag=101 nentries=1 etime=0
+...
+# etime=0 说明当前没有查询压力    
+```
 
 ### 构建冗余环形拓扑
 为了实现任意单节点宕机时仍能保持全网同步，你需要：增加关键节点之间的复制关系   

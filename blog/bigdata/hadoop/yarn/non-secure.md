@@ -24,6 +24,7 @@ hadoop.proxyuser.<proxy_user>.users
 
 ### 关于新增用户跑作业问题
 正常情况下的当前配置，如果提交了一个系统上没有的用户，会抛出异常，因为yarn以实际提交keytab用户的用户来运行作业，即使用spark代理用户提交上去，nm也会取实际代理用户来跑作业。    
+如果集群启用了安全模式，非安全模式的配置全部无效。    
 例：(以下这种的意思是业务用户user01使用了bus_user的代理认证跑作业，但实际权限还是用的是user01)
 ```
 // hadoop配置增加 core.xml
@@ -67,9 +68,10 @@ main : run as user is user01
 main : requested yarn user is user01
 User user01 not found
 ```
-这里摸改了yarn container的启动脚本，发果发现系统上没有这个用户，就在linux系统是 adduser一个新用户。   
-但想在起用了安全模式集群下，屏蔽业务用户在服务器上起进程，想用统一的用户来起进程，这个目前做不到。  
-如果集群启用了安全模式，非安全模式的配置全部无效。  
+这里本地服务器没有hadoop需要的用户有2种解决方案   
+1：在本地新建hadoop集群需要的用户，发果发现系统上没有这个用户，就在linux系统是 adduser一个新用户。这种对于运维来说有问题，简单少量不太注重规范的节点可以这么干     
+2：接入sssd服务  
+    本地用户nss服务来读取/etc/pass或/etc/group 用户信息 -> nss也可以通过sssd服务来读取远程用户管理信息，sssd服务读取-> 389ds库中的用户信息（也就是和kdc同一个存储库的用户信息，主要是uid和用户name及groups信息），但是sssd默认配置存在很多问题，需要优化，屏蔽掉全库读的问题。   
 
 
 

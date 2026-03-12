@@ -28,7 +28,7 @@
           children:
             - title: hadoop集成kerberos
               url: /blog/bigdata/hadoop/kdc/kdc-arch.html
-            - title: ipa服务安装
+            - title: ipa服务安装&优化
               url: /blog/bigdata/hadoop/kdc/kdc-install.html
             - title: KDC实现HA
               url: /blog/bigdata/ops/keepalivedHA.html  

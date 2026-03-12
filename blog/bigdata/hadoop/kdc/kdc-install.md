@@ -906,6 +906,127 @@ grep etime= /var/log/dirsrv/slapd-YYDEVOPS-COM/access | tail -n 100
 # etime=0 说明当前没有查询压力    
 ```
 
+#### nodemnager的for zookeeper优化
+kdc日志一直输出nm/host for zookeeper的认证日志，这是因为nm没有使用cache，每次和zk交互都会认证一下kdc    
+```shell
+Mar 12 11:01:59 ipa-70-2 krb5kdc[45529]: AS_REQ (4 etypes {18 17 16 23}) 10.12.69.236: NEEDED_PREAUTH: nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM for krbtgt/YYDEVOPS.COM@YYDEVOPS.COM, Additional pre-authentication required
+Mar 12 11:02:00 ipa-70-2 krb5kdc[45529]: AS_REQ (4 etypes {18 17 16 23}) 10.12.69.236: ISSUE: authtime 1773284519, etypes {rep=18 tkt=18 ses=18}, nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM for krbtgt/YYDEVOPS.COM@YYDEVOPS.COM
+Mar 12 11:02:01 ipa-70-2 krb5kdc[45534]: TGS_REQ (4 etypes {18 17 16 23}) 10.12.69.236: ISSUE: authtime 1773284519, etypes {rep=18 tkt=23 ses=18}, nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM for zookeeper/fs-hiido-jnzk-21-116-2.hiido.host.yydevops.com@YYDEVOPS.COM
+Mar 12 11:04:08 ipa-70-2 krb5kdc[45532]: AS_REQ (4 etypes {18 17 16 23}) 10.12.69.236: NEEDED_PREAUTH: nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM for krbtgt/YYDEVOPS.COM@YYDEVOPS.COM, Additional pre-authentication required
+
+# 日志解析  
+# 第一阶段 AS_REQ NEEDED_PREAUTH  Pre-Authentication（预认证）我知道这个用户存在，但你得证明你是它。请用你的 Keytab 加密一个当前时间戳发给
+# 第二阶段 TGS_REQ ISSUE 解密成功，时间戳也对得上，确认是本人。于是记录 ISSUE 并把 TGT 发给 NM。
+```
+**解决优化** 
+如果是nm有用到jass模块，启用ticket cache,  修改 yarn_nm_jaas.conf 的配置    
+```
+Client {
+    com.sun.security.auth.module.Krb5LoginModule required
+    useKeyTab=true
+    storeKey=true
+    useTicketCache=true
+    renewTGT=true
+    doNotPrompt=true
+    keyTab="/etc/security/keytabs/nm.service.keytab"
+    principal="nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM";
+};
+com.sun.security.jgss.krb5.initiate {
+    com.sun.security.auth.module.Krb5LoginModule required
+    renewTGT=true
+    doNotPrompt=true
+    useKeyTab=true
+    keyTab="/etc/security/keytabs/nm.service.keytab"
+    principal="nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM"
+    storeKey=true
+    useTicketCache=true;
+};
+```
+2:ambari监控问题,他会把监控数据写到zk       
+```log 
+# nm日志 
+2026-03-11 06:22:12,115 WARN  availability.MetricCollectorHAHelper (MetricCollectorHAHelper.java:findLiveCollectorHostsFromZNode(90)) - Unable to connect to zookeeper.
+
+# 查看和修复测试    
+cat /etc/hadoop/conf/hadoop-metrics2.properties
+
+sed -i s/nodemanager.sink.timeline/#nodemanager.sink.timeline/g  /etc/hadoop/conf/hadoop-metrics2.properties
+sudo -s su yarn /bin/bash -c '/usr/hdp/3.1.0.0-78/hadoop-yarn/bin/yarn --daemon stop nodemanager'
+sudo -s su yarn /bin/bash -c '/usr/hdp/3.1.0.0-78/hadoop-yarn/bin/yarn --daemon start nodemanager'
+
+# 还需要在ambari中的hdfs配置模板中注掉    
+```
+#### 389ds监控  
+
+```shell 
+# 版本
+/usr/sbin/ns-slapd --version
+
+#监控4.8会有   4.3没有dsconf
+INSTANCE_NAME=$(ls /etc/dirsrv/ | grep slapd- | head -1 | sed 's/slapd-//')
+dsconf $INSTANCE_NAME replication monitor
+输入 cn=Directory Manager
+
+# 查看389ds后端监控  
+ldapsearch -LLL -Y EXTERNAL -H ldapi://%2fvar%2frun%2fslapd-YYDEVOPS-COM.socket -b "cn=monitor,cn=userRoot,cn=ldbm database,cn=plugins,cn=config"
+
+# 调整锁 # 修改前务必备份
+stop-dirsrv
+cp /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif /root/dse.ldif.bak.20260312  
+grep nsslapd-db-locks  /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif
+sed -i s/'nsslapd-db-locks: 10000'/'nsslapd-db-locks: 100000'/g /etc/dirsrv/slapd-YYDEVOPS-COM/dse.ldif
+start-dirsrv
+systemctl status dirsrv@YYDEVOPS-COM.service
+
+#  查看锁信息
+ldapsearch -LLL -Y EXTERNAL -H ldapi://%2fvar%2frun%2fslapd-YYDEVOPS-COM.socket -b "cn=config,cn=ldbm database,cn=plugins,cn=config" | grep lock
+
+
+# 查看当前连接
+ldapsearch -LLL -x -b "cn=monitor" -H ldap://localhost:389 | grep connections
+
+# 查看进程当前 FD 使用情况
+pid=$(pidof ns-slapd)
+ls -l /proc/$pid/fd | wc -l
+lsof -p $pid | awk '{print $5}' | sort | uniq -c
+
+# 查看线程与阻塞点
+ps -L -p $pid -o pid,tid,psr,pcpu,stat,comm
+top -H -p $pid
+
+# 查看ns-slapd进程的线程
+ps -L -p $(pidof ns-slapd) -o pid,tid,psr,pcpu,time,comm
+
+# 或使用更详细的输出
+ps -eLf | grep "ns-slapd" | grep -v grep
+
+# 查看线程状态分布
+ps -L -p $(pidof ns-slapd) -o state | sort | uniq -c
+# 输出示例：
+#  20 R  # 运行中
+#  15 S  # 睡眠中
+#   5 D  # 不可中断睡眠（通常是在等IO或锁）
+
+# 查看复制相关线程
+top -H -p $(pidof ns-slapd) -b -n 1 | grep -E "(repl|slapd)"
+
+# 或使用htop更直观
+# htop -p $(pidof ns-slapd)
+# 按H显示线程，按F2设置显示列，添加STATE和COMMAND
+
+# 检查复制线程的堆栈
+gdb -p $(pidof ns-slapd) -ex "thread apply all bt" -ex "detach" -ex "quit" 2>/dev/null | \
+  grep -A10 "repl" | head -50
+
+
+# 捕获线程栈（定位阻塞函数）
+gdb -p $pid -batch -ex "thread apply all bt" > /tmp/slapd_bt.txt
+
+
+
+```
+
+
 ### 构建冗余环形拓扑
 为了实现任意单节点宕机时仍能保持全网同步，你需要：增加关键节点之间的复制关系   
 可以通过页面或freeipa命令查看当前的默认topologysegment    

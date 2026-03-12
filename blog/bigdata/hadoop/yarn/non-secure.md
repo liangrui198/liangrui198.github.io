@@ -72,6 +72,7 @@ User user01 not found
 1：在本地新建hadoop集群需要的用户，发果发现系统上没有这个用户，就在linux系统是 adduser一个新用户。这种对于运维来说有问题，简单少量不太注重规范的节点可以这么干     
 2：接入sssd服务  
     本地用户nss服务来读取/etc/pass或/etc/group 用户信息 -> nss也可以通过sssd服务来读取远程用户管理信息，sssd服务读取-> 389ds库中的用户信息（也就是和kdc同一个存储库的用户信息，主要是uid和用户name及groups信息），但是sssd默认配置存在很多问题，需要优化，屏蔽掉全库读的问题。   
+    通过id user来验证是否连通sssd远程用户信息    
 
 
 

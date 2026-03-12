@@ -942,7 +942,7 @@ com.sun.security.jgss.krb5.initiate {
     useTicketCache=true;
 };
 ```
-2:ambari监控问题,他会把监控数据写到zk       
+2:ambari监控问题,他会把监控数据写到zk产生的，如果不需要，也可以直接干掉这个监控服务           
 ```log 
 # nm日志 
 2026-03-11 06:22:12,115 WARN  availability.MetricCollectorHAHelper (MetricCollectorHAHelper.java:findLiveCollectorHostsFromZNode(90)) - Unable to connect to zookeeper.

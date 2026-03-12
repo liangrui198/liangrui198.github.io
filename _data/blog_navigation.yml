@@ -24,7 +24,7 @@
               url: /blog/bigdata/hadoop/yarn/non-secure.html 
             - title: YARN共享缓存
               url: /blog/bigdata/ops/scm.html 
-        - title: KDC
+        - title: hadoop安全
           children:
             - title: hadoop集成kerberos
               url: /blog/bigdata/hadoop/kdc/kdc-arch.html

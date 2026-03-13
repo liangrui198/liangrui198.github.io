@@ -60,7 +60,7 @@ for line in `getcert list | grep Request | cut -d "'" -f2`; do getcert resubmit 
 
 ```
 ### 重新续订方案2
-手动生成证书  
+如果偿试调整时间还是不能成功续定，可能是中间某些数据错乱了，可以手动彻底生成证书      
 我们通过getcert list可以查看到所有证书信息，其中有证书位置和名字，通过这些信息，手动完成生成证书->CA签名->导入证书到本地库->导入证书到389ds库  
 /etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" 为例： 
 
@@ -158,6 +158,7 @@ printf "%d\n" 0xC9510BFB
 
 # 更新 LDAP 条目
 # 创建 /root/server-cert.ldif 内容如下
+# 内容可以提取old cert 信息，只需要update 以下信息即可，这些信息可以从证书上提取查看，参考上面的提取例子
 
 dn: cn=3377531899,ou=certificateRepository,ou=ca,o=ipaca
 objectClass: top

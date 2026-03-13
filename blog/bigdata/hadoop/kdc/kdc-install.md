@@ -919,8 +919,10 @@ Mar 12 11:04:08 ipa-70-2 krb5kdc[45532]: AS_REQ (4 etypes {18 17 16 23}) 10.12.6
 # 第二阶段 TGS_REQ ISSUE 解密成功，时间戳也对得上，确认是本人。于是记录 ISSUE 并把 TGT 发给 NM。
 ```
 **解决优化** 
-如果是nm有用到jass模块，启用ticket cache,  修改 yarn_nm_jaas.conf 的配置    
-```
+如果是nm有用到jass模块，启用ticket cache,  修改 yarn_nm_jaas.conf 的配置   
+/var/lib/ambari-server/resources/stacks/HDP/3.0/services/YARN/package/templates/ 
+
+```conf
 Client {
     com.sun.security.auth.module.Krb5LoginModule required
     useKeyTab=true
@@ -928,16 +930,16 @@ Client {
     useTicketCache=true
     renewTGT=true
     doNotPrompt=true
-    keyTab="/etc/security/keytabs/nm.service.keytab"
-    principal="nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM";
+    keyTab="{{nodemanager_keytab}}"
+    principal="{{nodemanager_principal_name}}";
 };
 com.sun.security.jgss.krb5.initiate {
     com.sun.security.auth.module.Krb5LoginModule required
     renewTGT=true
     doNotPrompt=true
     useKeyTab=true
-    keyTab="/etc/security/keytabs/nm.service.keytab"
-    principal="nm/fs-hiido-dn-12-69-236.hiido.host.int.yy.com@YYDEVOPS.COM"
+    keyTab="{{nodemanager_keytab}}"
+    principal="{{nodemanager_principal_name}}"
     storeKey=true
     useTicketCache=true;
 };

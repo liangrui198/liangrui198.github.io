@@ -134,7 +134,7 @@ certutil -L -d /etc/dirsrv/slapd-YYDEVOPS-COM  -n "Server-Cert" -a > /root/ds-se
 openssl x509 -in /root/ds-server-cert.pem -out /root/ds-server-cert.der -outform DER
 
 #提取公钥
-openssl x509 -in /home/liangrui06/server-cert.crt -inform DER -pubkey -noout \
+openssl x509 -in server-cert.crt -inform DER -pubkey -noout \
   | openssl rsa -pubin -outform DER 2>/dev/null \
   | base64 -w 64
 
@@ -173,6 +173,9 @@ userCertificate;binary:< file:/root/ds-server-cert.der
 
 # 导入389ds：
 ldapadd -x -D "cn=Directory Manager" -w $pass -f /root/server-cert.ldif
+
+# 查询
+ldapsearch -LLL -x -D "cn=Directory Manager" -w $pass   -b "cn=3377531899,ou=certificateRepository,ou=ca,o=ipaca"
 
 # 如果是HTTP服务，会映射到某个用户上，映射规则是默认的，也可以手动改 例如下，他是用description来找到用户的，查看内容
 ldapsearch -LLL -x -D "cn=Directory Manager" -w xx   -b "uid=ipara,ou=people,o=ipaca" "(objectClass=*)"
@@ -289,8 +292,17 @@ description=2;39829;CN=Certificate Authority,O=YYDEVOPS.COM;CN=IPA RA,O=YYDEVOPS
 
 # ldap验证
 ldapsearch -LLL -x   -D "cn=Directory Manager" -w xx   -b "ou=People,o=ipaca"   "(description=2;39829;CN=Certificate Authority,O=YYDEVOPS.COM;CN=IPA RA,O=YYDEVOPS.COM)"
+
+# 新建des_modify.ldif文件  手动修复这个老cn号所有请求成功了
+dn: uid=ipara,ou=people,o=ipaca
+changetype: modify
+replace: description
+description: 2;39829;CN=Certificate Authority,O=YYDEVOPS.COM;CN=IPA RA,O=YYDEVOPS.COM
+
+ldapmodify -x -D "cn=Directory Manager" -W -f  des_modify.ldif
 ```
-手动修复这个老cn号所有请求成功了  
+  
+
 
 ## 无法复制问题
 ### maximum allowed limit

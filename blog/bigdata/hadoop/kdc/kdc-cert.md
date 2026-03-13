@@ -68,7 +68,7 @@ for line in `getcert list | grep Request | cut -d "'" -f2`; do getcert resubmit 
 # 删除旧证书
 certutil -D -d /etc/dirsrv/slapd-YYDEVOPS-COM  -n "Server-Cert" -f /root/nss-pin.txt
 
-# 在 CA 服务器上执行： 
+# 在 CA 服务器上执行 生成dirsrv Server-Cert证书： 
 certutil -S -d /etc/dirsrv/slapd-YYDEVOPS-COM \
   -n "Server-Cert" \
   -s "CN=$(hostname -f),O=YYDEVOPS.COM" \
@@ -98,14 +98,18 @@ certutil -R -d /etc/dirsrv/slapd-YYDEVOPS-COM   -s "CN=ipa-70-3.hiido.host.int.y
 # -f pwdfile.txt NSS 数据库密码文件。
 # -o server-cert.csr 输出 CSR 文件。
 
-# 在 CA 服务器上执行：
+=====================================================================================================
+# 删除旧证书
+# 这个密码来自 /root/ca_pwdfile.txt -> /etc/pki/pki-tomcat/password.conf
+certutil -D -d /etc/pki/pki-tomcat/alias  -n "Server-Cert" -f  /root/ca_pwdfile.txt
+
+#  生成/etc/pki/pki-tomcat/alias  server-cert.crt， 在 CA 服务器上执行 CA签名：
 certutil -C -d /etc/pki/pki-tomcat/alias \
   -i /home/liangrui06/70_3_csr/server-cert.csr \
   -o /home/liangrui06/70_3_csr/server-cert.crt \
   -c "caSigningCert cert-pki-ca" \
   -f /root/ca_pwdfile.txt
 
-# 这个密码来自 /root/ca_pwdfile.txt -> /etc/pki/pki-tomcat/password.conf
 
 # 验证新证书
 openssl x509 -in /home/liangrui06/70_3_csr/server-cert.crt -noout -text

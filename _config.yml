@@ -15,7 +15,15 @@ github_username:  liangrui198
 # 构建设置
 theme: minima
 
+  - jekyll-polyglot
 # 代码高亮设置
+languages: [zh, en]
+default_lang: zh
+polyglot:
+  auto-translate: true
+  translate_provider: google
+  translate_from: zh
+  translate_to: en
 highlighter: rouge
 markdown: kramdown
 kramdown:

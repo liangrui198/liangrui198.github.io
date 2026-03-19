@@ -956,7 +956,7 @@ sed -i s/nodemanager.sink.timeline/#nodemanager.sink.timeline/g  /etc/hadoop/con
 sudo -s su yarn /bin/bash -c '/usr/hdp/3.1.0.0-78/hadoop-yarn/bin/yarn --daemon stop nodemanager'
 sudo -s su yarn /bin/bash -c '/usr/hdp/3.1.0.0-78/hadoop-yarn/bin/yarn --daemon start nodemanager'
 
-# 还需要在ambari中的hdfs配置模板中注掉    
+# 还需要在ambari中的hdfs配置模板中注掉所有不需要的 xx.sink.timeline     
 ```
 #### 389ds监控  
 
@@ -1041,9 +1041,62 @@ ipa topologysegment-add domain ipa-70-2.hiido.host.int.yy.com-to-ipa-70-3.hiido.
 
 # 执行完后，使用以下命令确认拓扑是否连通：
 ipa topologysegment-verify domain
-
 ```  
 
+### 兼容老配置
+在日常运维中，可能存在老krb5.conf配置,但客户端的配置可能出现在任意地方，有些配置没有配置vip或lvs，为了兼容这种老的配置，可以用端口转发。  
+例: /etc/krb5.conf_back       
+```
+...
+[realms]
+  XX.COM = {
+    admin_server = fs-hiido-kdc3-ha43.hiido.host.int.yy.com
+    kdc = fs-hiido-kdc3-ha43.hiido.host.int.xx.com:41013
+    ...
+    kdc = old_hostname.xx.com:88
+  }
+```
+old_hostname.xx.com需要下线或迁移，客户端可能上千个配置文件，更换完是行不通的。   
+虽然前面有vip或LVS，但考虑怕程序抽风会跳过，如果部署一个备用的节点，比较浪费资源，
+1个ip只能对一个内部域名的限制情况下，所以还是从网络层兼容一下    
+以下是把old_hostname.xx.com映射到10.12.66.238机器上，
+然后再通过10.12.66.238转发88端口到10.12.70.11上面，10.12.66.238机器上只是转发，这台机器可以继续跑其它资源，真正kdc新机器是10.12.70.11   
+```shell
+# 开启系统转发
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# 转发 TCP 88
+iptables -t nat -A PREROUTING -p tcp --dport 88 -j DNAT --to-destination 10.12.70.11:88
+# 转发 UDP 88
+iptables -t nat -A PREROUTING -p udp --dport 88 -j DNAT --to-destination 10.12.70.11:88
+
+# 允许流量回传（由于在同一网段，必须做 SNAT 否则响应包回不去）
+iptables -t nat -A POSTROUTING -d 10.12.70.11 -p tcp --dport 88 -j SNAT --to-source 10.12.66.238
+iptables -t nat -A POSTROUTING -d 10.12.70.11 -p udp --dport 88 -j SNAT --to-source 10.12.66.238
+
+# 持久化保存（非常重要）
+iptables-save > /etc/iptables.rules
+#查看列表 
+iptables -t nat -L -n -v --line-numbers
+
+# 在其它客户端验证
+nc -zv 10.12.66.238 88
+
+# keytab文件验证,成功登录  
+root@fs-hiido-dn-12-11-133:/home/liangrui06# kdestroy 
+root@fs-hiido-dn-12-11-133:/home/liangrui06# KRB5_TRACE=/dev/stdout  kinit -kt k8s_dev.keytab k8s_dev
+...
+[7110] 1773907793.549858: Resolving hostname old_hostname.xx.com
+[7110] 1773907793.550029: Sending initial UDP request to dgram 10.12.66.238:88
+
+klist
+Ticket cache: FILE:/tmp/krb5cc_0
+Default principal: k8s_dev@YYDEVOPS.COM
+
+Valid starting       Expires              Service principal
+03/19/2026 16:09:53  02/21/2031 16:09:53  krbtgt/YYDEVOPS.COM@YYDEVOPS.COM
+        renew until 01/26/2036 16:09:53
+```
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>

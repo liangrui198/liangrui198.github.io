@@ -1044,6 +1044,7 @@ ipa topologysegment-verify domain
 ```  
 
 ### 兼容老配置
+
 在日常运维中，可能存在老krb5.conf配置,但客户端的配置可能出现在任意地方，有些配置没有配置vip或lvs，为了兼容这种老的配置，可以用端口转发。  
 例: /etc/krb5.conf_back       
 ```

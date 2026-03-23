@@ -62,13 +62,13 @@ for line in `getcert list | grep Request | cut -d "'" -f2`; do getcert resubmit 
 ### 重新续订方案2
 如果偿试调整时间还是不能成功续定，可能是中间某些数据错乱了，可以手动彻底生成证书      
 我们通过getcert list可以查看到所有证书信息，其中有证书位置和名字，通过这些信息，手动完成生成证书->CA签名->导入证书到本地库->导入证书到389ds库  
-/etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" 为例： 
-
+ 重新生成 /etc/dirsrv/slapd-YYDEVOPS-COM  -n "Server-Cert" 为例： 
 ```bash 
 # 删除旧证书
 certutil -D -d /etc/dirsrv/slapd-YYDEVOPS-COM  -n "Server-Cert" -f /root/nss-pin.txt
 
 # 在 CA 服务器上执行 生成dirsrv Server-Cert证书： 
+# 如果不是CA机，需要把生成的证书copy到CA机器上进行签名,然后再导回到副本机器中
 certutil -S -d /etc/dirsrv/slapd-YYDEVOPS-COM \
   -n "Server-Cert" \
   -s "CN=$(hostname -f),O=YYDEVOPS.COM" \
@@ -76,57 +76,11 @@ certutil -S -d /etc/dirsrv/slapd-YYDEVOPS-COM \
   -t "u,u,u" -k rsa -g 2048 -Z SHA256 \
   -f /root/nss-pin.txt
 
-
- # 60个月有效期 
-  -v 60
-
 #  -n "Server-Cert" → 正确的 nickname。
 #  -s → 使用主机 FQDN 作为 CN。
 #  -c → 用 CA 签名证书签发。
 #  -t "u,u,u" → 设置信任属性。
 #  -k rsa -g 2048 -Z SHA256 → 生成 RSA 2048 位，SHA256 签名。
-
-
-# 如果不是CA机，需要把生成的证书copy到CA机器上进行签名
-# 副本机器上  
-certutil -R -d /etc/dirsrv/slapd-YYDEVOPS-COM   -s "CN=ipa-70-3.hiido.host.int.yy.com,O=YYDEVOPS.COM"   -n "Server-Cert" -g 2048 -f pwdfile.txt -o server-cert.csr
-
-
-#说明：
-# -n 设置证书昵称 (NSS 数据库中的名字)。
-# -g 密钥长度。
-# -f pwdfile.txt NSS 数据库密码文件。
-# -o server-cert.csr 输出 CSR 文件。
-
-=====================================================================================================
-# 删除旧证书
-# 这个密码来自 /root/ca_pwdfile.txt -> /etc/pki/pki-tomcat/password.conf
-certutil -D -d /etc/pki/pki-tomcat/alias  -n "Server-Cert" -f  /root/ca_pwdfile.txt
-
-#  生成/etc/pki/pki-tomcat/alias  server-cert.crt， 在 CA 服务器上执行 CA签名：
-certutil -C -d /etc/pki/pki-tomcat/alias \
-  -i /home/liangrui06/70_3_csr/server-cert.csr \
-  -o /home/liangrui06/70_3_csr/server-cert.crt \
-  -c "caSigningCert cert-pki-ca" \
-  -f /root/ca_pwdfile.txt
-
-
-# 验证新证书
-openssl x509 -in /home/liangrui06/70_3_csr/server-cert.crt -noout -text
-openssl x509 -in /home/liangrui06/70_3_csr/server-cert.crt -inform DER -out server-cert.pem
-openssl x509 -in server-cert.pem -noout -text
-
-#导入副本
-certutil -A -d /etc/dirsrv/slapd-YYDEVOPS-COM \
-  -n "Server-Cert" \
-  -t "u,u,u" \
-  -i /home/liangrui06/server-cert.crt \
-  -f /etc/dirsrv/slapd-YYDEVOPS-COM/pwdfile.txt
-
-# 说明：-n "Server-Cert"：证书昵称，必须和配置里引用的一致。
-# -t "u,u,u"：设置信任属性（SSL、S/MIME、对象签名）。
-# -i：指定签名后的证书文件。
-# -f：副本机 NSS 库的密码文件（通常是 /etc/dirsrv/slapd-YYDEVOPS-COM/pwdfile.txt）。
 
 # 验证新证书
 certutil -L -d /etc/dirsrv/slapd-YYDEVOPS-COM -n "Server-Cert"
@@ -142,13 +96,12 @@ openssl x509 -in server-cert.crt -inform DER -pubkey -noout \
   | openssl rsa -pubin -outform DER 2>/dev/null \
   | base64 -w 64
 
-certutil -L -d /etc/apache2/nssdb  -n ipaCert
 
 # 获取序列号并转十进制
 openssl x509 -in /root/ds-server-cert.pem -noout -serial
 
 #或者查看本地库证书信息
-certutil -L -d /etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" -a | openssl x509 -noout -serial -subject
+certutil -L -d /etc/dirsrv/slapd-YYDEVOPS-COM  -n "Server-Cert" -a | openssl x509 -noout -serial -subject
 serial=C9510BFB
 subject= xx
 
@@ -182,6 +135,71 @@ ldapadd -x -D "cn=Directory Manager" -w $pass -f /root/server-cert.ldif
 # 查询
 ldapsearch -LLL -x -D "cn=Directory Manager" -w $pass   -b "cn=3377531899,ou=certificateRepository,ou=ca,o=ipaca"
 
+6. 重启服务
+bash
+systemctl restart dirsrv@xx-COM.service
+systemctl restart pki-tomcatd.service
+systemctl restart apache2.service
+systemctl restart certmonger
+
+#可能会执行
+rm -rf /var/run/ipa/renewal.lock  # 删除续订锁
+pki-server subsystem-enable -i pki-tomcat ca  # 重启启用subsystem
+```
+**重新生成pki下的Server-Cert**    
+/etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" 例子：    
+```shell
+#删除旧证书
+certutil -D -d /etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" -f /root/nss-pin.txt
+
+#在 CA 服务器上执行：
+certutil -S -d /etc/pki/pki-tomcat/alias \
+  -n "Server-Cert cert-pki-ca" \
+  -s "CN=$(hostname -f),O=YYDEVOPS.COM" \
+  -c "caSigningCert cert-pki-ca" \
+  -t "u,u,u" -k rsa -g 2048 -Z SHA256 \
+  -f /root/nss-pin.txt
+
+#-n "Server-Cert cert-pki-ca" → 正确的 nickname。
+#-s → 使用主机 FQDN 作为 CN。
+#-c → 用 CA 签名证书签发。
+#-t "u,u,u" → 设置信任属性。
+#-k rsa -g 2048 -Z SHA256 → 生成 RSA 2048 位，SHA256 签名。
+
+# 2. 验证新证书
+bash
+certutil -L -d /etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca"
+certutil -K -d /etc/pki/pki-tomcat/alias -f /root/nss-pin.txt
+确认新证书存在且有私钥。
+
+# 3. 导出并转 DER
+bash
+certutil -L -d /etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" -a > /root/server-cert.pem
+openssl x509 -in /root/server-cert.pem -out /root/server-cert.der -outform DER
+certutil -L -d /etc/apache2/nssdb  -n ipaCert
+
+# 4. 获取序列号并转十进制
+openssl x509 -in /root/server-cert.pem -noout -serial
+# 假设输出 serial=C944FDC8
+printf "%d\n" 0xC944FDC8
+
+# 输出 3376741832
+# 5. 更新 LDAP 条目
+创建 /root/server-cert.ldif
+
+ldif
+dn: cn=3376741832,ou=certificateRepository,ou=ca,o=ipaca
+objectClass: top
+objectClass: certificateRecord
+cn: 3376741832
+serialno: 3376741832
+certStatus: VALID
+subjectName: CN=fs-hiido-ipa-65-155.hiido.host.yydevops.com,O=YYDEVOPS.COM
+userCertificate;binary:< file:/root/server-cert.der
+
+# 导入：
+ldapadd -x -D "cn=Directory Manager" -w $pass  -f /root/server-cert.ldif
+
 # 如果是HTTP服务，会映射到某个用户上，映射规则是默认的，也可以手动改 例如下，他是用description来找到用户的，查看内容
 ldapsearch -LLL -x -D "cn=Directory Manager" -w xx   -b "uid=ipara,ou=people,o=ipaca" "(objectClass=*)"
 dn: uid=ipara,ou=people,o=ipaca
@@ -209,20 +227,11 @@ userCertificate:< file:///tmp/ipa-ra.pem
 # 执行替换ipara用户下的证书内容
 ldapmodify -x -D "cn=Directory Manager" -W -f /tmp/add-ipara.ldif
 
+#重启服务，参考上个例子
+``` 
 
 
-6. 重启服务
-bash
-systemctl restart dirsrv@xx-COM.service
-systemctl restart pki-tomcatd.service
-systemctl restart apache2.service
-systemctl restart certmonger
 
-#可能会执行
-rm -rf /var/run/ipa/renewal.lock  # 删除续订锁
-pki-server subsystem-enable -i pki-tomcat ca  # 重启启用subsystem
-
-```
 全部执行顺利，有问题的证书更新完后，再使用getcert resubmit -i xxx就能正常续订新的证书了。  
 
 ## 更新证书遇到的问题

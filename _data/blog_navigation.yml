@@ -34,6 +34,8 @@
               url: /blog/bigdata/ops/keepalivedHA.html  
             - title: ipa证书修复
               url: /blog/bigdata/hadoop/kdc/kdc-cert.html
+            - title: 389ds并发卡死修复
+              url: /blog/bigdata/hadoop/kdc/389ds-exit.html
             - title: keytab文件恢复
               url: /blog/bigdata/ops/recover_keytab.html    
                       

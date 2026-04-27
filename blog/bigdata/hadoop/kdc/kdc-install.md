@@ -606,8 +606,8 @@ systemctl restart  dirsrv@YYDEVOPS-COM.service
 nsslapd-threadnumber: 128
 # 每个连接可用并发线程数
 nsslapd-maxthreadsperconn: 20
-# 会让空闲连接长时间占用 socket/FD/线程，默认1小时，缩短为5分钟就释放掉
-nsslapd-idletimeout: 300
+# 会让空闲连接长时间占用 socket/FD/线程，默认1小时，缩短为30分钟就释放掉，如果出现Resource temporarily unavailable T1很多，需要提高这个时间
+nsslapd-idletimeout: 600
 # 打开文件描述符最大限制，需要调成一致的，默认的太少了，上限后会阻止复制
 nsslapd-maxdescriptors: 32768
 
@@ -627,7 +627,7 @@ replace: nsslapd-maxthreadsperconn
 nsslapd-maxthreadsperconn: 20
 -
 replace: nsslapd-idletimeout
-nsslapd-idletimeout: 300
+nsslapd-idletimeout: 600
 -
 replace: nsslapd-maxdescriptors
 nsslapd-maxdescriptors: 131072

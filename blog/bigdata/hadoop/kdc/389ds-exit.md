@@ -152,6 +152,44 @@ Thread 44364:
 [<ffffffffb78b020e>] entry_SYSCALL_64_after_swapgs+0x58/0xc6
 [<ffffffffffffffff>] 0xffffffffffffffff
 
+# GBD threads信息 __db_pthread_mutex_lock出现114次
+# filter_candidates_ext 重复出现了 4 次。这说明 LDAP 正在处理一个极其复杂的嵌套过滤器查询。
+# 关联性推断：普通的 Ambari 写入不应该产生如此深层的递归搜索。只有 Schema Compatibility 插件在工作时，为了生成虚拟的 cn=compat 条目，它会频繁地在后台发起这种“为了构造一个属性而搜索整个数据库”的操作。 
+# 诊断结论：锁桶 (Lock Buckets) 耗尽
+
+...
+Thread 233 (Thread 0x7fd507726700 (LWP 44327)):
+#0  pthread_cond_wait@@GLIBC_2.3.2 () at ../sysdeps/unix/sysv/linux/x86_64/pthread_cond_wait.S:185
+#1  0x00007fd724ead88d in __db_pthread_mutex_lock () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#2  0x00007fd724f56600 in __lock_get_internal () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#3  0x00007fd724f57017 in __lock_get () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#4  0x00007fd724f82447 in __db_lget () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#5  0x00007fd724eca85d in __bam_search () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#6  0x00007fd724eb58fc in ?? () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#7  0x00007fd724eb79ff in ?? () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#8  0x00007fd724f6ee15 in __dbc_iget () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#9  0x00007fd724f7df02 in __dbc_get_pp () from /usr/lib/x86_64-linux-gnu/libdb-5.3.so
+#10 0x00007fd720eac0ce in idl_new_fetch () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#11 0x00007fd720eba713 in index_read_ext_allids () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#12 0x00007fd720ea4c3d in ?? () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#13 0x00007fd720ea5452 in ?? () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#14 0x00007fd720ea5a3a in filter_candidates_ext () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#15 0x00007fd720ea6a3f in ?? () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#16 0x00007fd720ea59a2 in filter_candidates_ext () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#17 0x00007fd720ea6a3f in ?? () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#18 0x00007fd720ea59a2 in filter_candidates_ext () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#19 0x00007fd720ea6a3f in ?? () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#20 0x00007fd720ea59a2 in filter_candidates_ext () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#21 0x00007fd720ee11a7 in subtree_candidates () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#22 0x00007fd720ee2733 in ldbm_back_search () from /usr/lib/x86_64-linux-gnu/dirsrv/plugins/libback-ldbm.so
+#23 0x00007fd72ff77d90 in op_shared_search () from /usr/lib/x86_64-linux-gnu/dirsrv/libslapd.so.0
+#24 0x00005589d7d616df in ?? ()
+#25 0x00005589d7d5030f in ?? ()
+#26 0x00007fd72eed8088 in ?? () from /usr/lib/x86_64-linux-gnu/libnspr4.so
+#27 0x00007fd72ea7f6ba in start_thread (arg=0x7fd507726700) at pthread_create.c:333
+#28 0x00007fd72e7b541d in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:109
+...
+
 # summary.txt
 === 诊断摘要 ===
 采样时间: Mon Apr 27 11:14:36 CST 2026

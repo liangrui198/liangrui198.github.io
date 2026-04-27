@@ -222,7 +222,7 @@ krbtool.max.sleep.interval.second=300
 2:终极“保险丝”建议    
 
 ```shell
-# 仅仅在安装期间关闭 Schema Compatibility 插件
+# 在新版本的freeipa中 Schema Compatibility 插件默认是禁用的 
 ldapmodify -H ldap://localhost -x -D "cn=directory manager" -w $pass <<EOF
 dn: cn=Schema Compatibility,cn=plugins,cn=config
 changetype: modify

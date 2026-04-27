@@ -219,10 +219,13 @@ krbtool.each.action.sleep.interval.second=3
 krbtool.max.sleep.interval.second=300
 
 ```
-2:终极“保险丝”建议    
+2:终极“保险丝”建议  
+在新版本的freeipa中 Schema Compatibility 插件默认是禁用的  
+官方下线bdb文档: https://www.port389.org/docs/389ds/howto/howto-migrate-bdb-to-lmdb.html    
+应用LMDB：https://www.port389.org/docs/389ds/howto/howto-use-lmdb.html   
 
 ```shell
-# 在新版本的freeipa中 Schema Compatibility 插件默认是禁用的 
+
 ldapmodify -H ldap://localhost -x -D "cn=directory manager" -w $pass <<EOF
 dn: cn=Schema Compatibility,cn=plugins,cn=config
 changetype: modify

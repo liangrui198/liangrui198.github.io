@@ -236,6 +236,22 @@ EOF
 # 查询
 ldapsearch -H ldap://localhost -x -D "cn=directory manager" -w "$pass" -s base -b "cn=Schema Compatibility,cn=plugins,cn=config" nsslapd-pluginEnabled  
 
+
+```
+
+3:你必须手动拓宽 BDB 的“登记簿架子”： 修改后必须重启才能生效    
+
+```shell
+ldapmodify -H ldap://localhost -x -D "cn=directory manager" -w $pass <<EOF
+dn: cn=config,cn=ldbm database,cn=plugins,cn=config
+changetype: modify
+add: nsslapd-db-lock-buckets
+nsslapd-db-lock-buckets: 30000
+EOF
+
+# 重启
+systemctl restart dirsrv@xx-COM
+
 ```
 
 **理由：**

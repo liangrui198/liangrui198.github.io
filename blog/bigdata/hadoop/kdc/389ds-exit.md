@@ -22,7 +22,7 @@ date: 2026-04-27
 INSTANCE="slapd-YYDEVOPS-COM"
 PID=$(pgrep -f "ns-slapd -D /etc/dirsrv/$INSTANCE")
 LOG_DIR="/tmp/ds_deep_diag_$(date +%Y%m%d_%H%M%S)"
-pass="ipaadmin4yycluster"
+pass="xx"
 
 if [ -z "$PID" ]; then
     echo "错误: 389-ds 进程未运行。"

@@ -214,12 +214,20 @@ Thread 233 (Thread 0x7fd507726700 (LWP 44327)):
 
 ```conf
 # 之前值是30
-krbtool.min.no.sleep.task=5
-krbtool.each.action.sleep.interval.second=3
-krbtool.max.sleep.interval.second=300
+# 1. 禁止不同请求并行执行（最关键）
+server.stages.parallel=false
+
+# 2. 设置低并发阈值，让第2个任务就开始随机延迟
+krbtool.min.no.sleep.task=1
+
+# 3. 设置随机延迟最大值为30秒（实现间隔效果）
+krbtool.max.sleep.interval.second=30
+
+# 4. 减少调度线程数
+server.execution.scheduler.maxThreads=1
 
 ```
-2:终极“保险丝”建议  
+2:禁用消耗锁的插件 
 在新版本的freeipa中 Schema Compatibility 插件默认是禁用的  
 官方下线bdb文档: https://www.port389.org/docs/389ds/howto/howto-migrate-bdb-to-lmdb.html    
 应用LMDB：https://www.port389.org/docs/389ds/howto/howto-use-lmdb.html   
@@ -252,7 +260,11 @@ EOF
 # 重启
 systemctl restart dirsrv@xx-COM
 
+
+
 ```
+
+
 
 **理由：**
  即使你限制了 Ambari 的并发，只要这个插件开着，每一次写入操作（Add Principal）都会触发一次复杂的虚拟树计算，这依然可能在老版本的 389-ds 上触发 Mutex 锁。关闭它就像是关掉了 389-ds 的“高耗能模式”，安装完成后你可以随时通过改为 on 恢复它。
@@ -294,6 +306,10 @@ SSSD 的普及：
 
 **总结**
 你当前处于 “旧引擎 (BDB) + 粗粒度锁插件 + 高并发写入 (Ambari)” 的组合下，这正好触发了 389-ds 设计上的最弱点。
+
+
+## 终极原因
+
 
 
 <div class="post-date">

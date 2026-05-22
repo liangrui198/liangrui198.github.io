@@ -10,6 +10,14 @@ title: Blogs
   <main class="blog-main-content">
     <h1>推荐博客文章</h1>  
     <ul class="blog-post-list">
+      {% assign featured_page = site.pages | where: "url", "/blog/platform_architecture.html" | first %}
+      {% if featured_page %}
+        <li class="blog-post-item">
+          <a class="blog-post-title" href="{{ featured_page.url }}">{{ featured_page.title }}</a>
+          <span class="blog-post-date">{{ featured_page.date | date: '%Y-%m-%d' }}</span>
+          <p class="blog-post-excerpt">{{ featured_page.excerpt | default: featured_page.content | strip_html | truncate: 80 }}</p>
+        </li>
+      {% endif %}
       {% for post in site.posts limit:10 %}
         <li class="blog-post-item">
           <a class="blog-post-title" href="{{ post.url }}">{{ post.title }}</a>

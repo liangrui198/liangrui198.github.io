@@ -1,3 +1,5 @@
+- title: YY-HADOOP平台架构图
+  url: /blog/platform_architecture.html
 - title: 大数据优化
   children:
     - title: Hadoop
@@ -21,9 +23,9 @@
             - title: codeCache-bug
               url: /blog/bigdata/hadoop/yarn/yarn-jdk-codeCache.html
             - title: 用户代理
-              url: /blog/bigdata/hadoop/yarn/non-secure.html 
+              url: /blog/bigdata/hadoop/yarn/non-secure.html
             - title: YARN共享缓存
-              url: /blog/bigdata/ops/scm.html 
+              url: /blog/bigdata/ops/scm.html
         - title: hadoop安全
           children:
             - title: hadoop集成kerberos
@@ -31,32 +33,28 @@
             - title: ipa服务安装&优化
               url: /blog/bigdata/hadoop/kdc/kdc-install.html
             - title: KDC实现HA
-              url: /blog/bigdata/ops/keepalivedHA.html  
+              url: /blog/bigdata/ops/keepalivedHA.html
             - title: ipa证书修复
               url: /blog/bigdata/hadoop/kdc/kdc-cert.html
             - title: 389ds并发卡死修复
               url: /blog/bigdata/hadoop/kdc/389ds-exit.html
             - title: keytab文件恢复
-              url: /blog/bigdata/ops/recover_keytab.html    
-                      
+              url: /blog/bigdata/ops/recover_keytab.html
 - title: 大数据运维
   children:
     - title: 监控服务
       children:
-            - title: cortex统一监控存储
-              url: /blog/bigdata/ops/cortex.html
-            - title: compass诊断平台
-              url: /blog/bigdata/ops/compass.html       
-            - title: 磁盘IO监控
-              url: /blog/bigdata/ops/blkio.html 
-   
-                                    
+        - title: cortex统一监控存储
+          url: /blog/bigdata/ops/cortex.html
+        - title: compass诊断平台
+          url: /blog/bigdata/ops/compass.html
+        - title: 磁盘IO监控
+          url: /blog/bigdata/ops/blkio.html
     - title: 告警服务
       children:
-            - title: 统一告警
-              url: /blog/bigdata/ops/alter.html                   
+        - title: 统一告警
+          url: /blog/bigdata/ops/alter.html
 - title: AI
   children:
     - title: idea集成AI
       url: /blog/ai/tools/idea-plugins.html
- 

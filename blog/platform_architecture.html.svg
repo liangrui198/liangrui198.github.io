@@ -116,11 +116,11 @@
     
     <g transform="translate(30, 115)">
       <rect width="290" height="40" rx="6" fill="#1E1B4B" stroke="#4F46E5" stroke-width="1"/>
-      <text x="15" y="25" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#818CF8">🧠 AI 运行优化与智能诊断</text>
+      <text x="15" y="25" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#818CF8">🧠 AI 异常问题诊断</text>
     </g>
     <g transform="translate(30, 170)">
       <rect width="290" height="40" rx="6" fill="#1E1B4B" stroke="#4F46E5" stroke-width="1"/>
-      <text x="15" y="25" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#818CF8">📊 Spark/Flink 作业全息分析</text>
+      <text x="15" y="25" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#818CF8">📊 Spark 作业性能分析</text>
     </g>
     <g transform="translate(30, 225)">
       <rect width="290" height="40" rx="6" fill="#1E1B4B" stroke="#4F46E5" stroke-width="1"/>

@@ -54,6 +54,10 @@
       children:
         - title: 统一告警
           url: /blog/bigdata/ops/alter.html
+    - title: 服务器运维
+      children:
+        - title: YARN-RM机器更换
+          url: /blog/bigdata/ops/service_replace.html          
 - title: AI
   children:
     - title: idea集成AI

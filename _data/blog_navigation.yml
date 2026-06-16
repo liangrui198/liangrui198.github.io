@@ -57,7 +57,13 @@
     - title: 服务器运维
       children:
         - title: YARN-RM机器更换
-          url: /blog/bigdata/ops/service_replace.html          
+          url: /blog/bigdata/ops/service_replace.html   
+- title: rustfs
+  children:
+    - title: rust语言入门
+      url: /blog/rust/language/example/example.html
+    - title: rustfs入门示例
+      url: /blog/rust/rustfs/install/build.html               
 - title: AI
   children:
     - title: idea集成AI

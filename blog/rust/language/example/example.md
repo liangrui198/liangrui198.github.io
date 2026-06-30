@@ -10,8 +10,8 @@ date: 2026-06-16
 
 # rust环境和编译
 Rust 速度极快，内存效率高：由于没有运行时环境或垃圾回收器，它可以为性能关键型服务提供支持，  
-官方文档： https://rust-lang.org/ 
-学习资源：https://rust-lang.org/learn
+官方文档： https://rust-lang.org/   
+学习资源：https://rust-lang.org/learn  
 
 ## rust开发环境
 官方推荐的开发IDE https://rust-lang.org/zh-CN/tools/    

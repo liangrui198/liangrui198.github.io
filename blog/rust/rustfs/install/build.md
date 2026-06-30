@@ -1,9 +1,9 @@
 ---
 layout: default
-title:  RUST BUILD
+title:  rustfs install
 author: liangrui
-description: "rust build" 
-keywords: rust podman build
+description: "rustfs build and install" 
+keywords: rustfs  build
 date: 2026-06-16
 ---
 

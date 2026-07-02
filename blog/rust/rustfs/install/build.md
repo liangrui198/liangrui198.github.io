@@ -260,9 +260,15 @@ sudo mv mc /usr/local/bin/mc
 mc --version
 ```
 
+
+
 配置 RustFS 服务端地址和访问凭证：  
 首先需要使用 mc alias 命令配置 RustFS 的别名：  
-`mc alias set rustfs http://test-rustfs-1.hiido.host.int.yy.com:9000 rustfsadmin rustfsadmin`
+```shell
+mc alias set rustfs http://test-rustfs-1.hiido.host.int.yy.com:9000 rustfsadmin rustfsadmin
+# lvs
+mc alias set rustfs http://test-rustfs-lb.hiido.host.int.yy.com:80 rustfsadmin rustfsadmin
+```
 
 基本命令     
 ```shell 
@@ -282,6 +288,20 @@ mc ls rustfs/bucket-test01-by-mc/
 mc rb rustfs/bucket-test01-by-mc
 
 ```
+## 写一个读写resutfs例子
+下面这个文件来自 GitHub 仓库中的 notebook，可以在vs code+google Colab 插件直接运行：  
+https://github.com/liangrui198/rustfs-test/blob/main/bash-example/word_count.ipynb    
+
+<iframe src="https://nbviewer.org/github/liangrui198/rustfs-test/blob/main/bash-example/word_count.ipynb"
+        width="100%"
+        height="900"
+        frameborder="0"
+        scrolling="yes"></iframe>
+
+vs code+google Colab插件运行截图：  
+![alt text](images/03-image.JPG)
+rustfs写入文件示例：  
+![alt text](images/02-image.png)
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>

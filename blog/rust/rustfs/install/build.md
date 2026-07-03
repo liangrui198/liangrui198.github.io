@@ -51,6 +51,7 @@ groupadd -r rustfs-user
 useradd -M -r -g rustfs-user rustfs-user
 mkdir -p /data/logs/rustfs/
 chown -R rustfs-user:rustfs-user /data/logs/rustfs/
+chown -R rustfs-user:rustfs-user /data{1..12}/rustfs
 ```
 
 ## 磁盘XFS格式化
@@ -167,8 +168,8 @@ Wants=network-online.target
 [Service]
 Type=notify
 NotifyAccess=main
-User=root
-Group=root
+User=rustfs-user
+Group=rustfs-user
 
 WorkingDirectory=/usr/local
 EnvironmentFile=-/etc/default/rustfs
@@ -250,6 +251,16 @@ Jun 29 15:54:29 test-rustfs-5.hiido.host.int.yy.com systemd[1]: Started RustFS O
 ## login  
 user and password : rustfsadmin 
 ![alt text](images/01-image.png)
+
+### 默认元数据信息
+```shell
+mc admin user list rustfs
+mc admin group list rustfs
+mc admin policy list rustfs
+
+# 物理元数据文件
+ll  /data1/rustfs/.rustfs.sys/config/iam/users/{user}/identity.json/xl.meta   
+```
 
 ## 客户端使用    
 使用 MinIO Client (mc) 工具进行操作。首先，确保已经安装了 mc 客户端。如果还没有安装，可以从 MinIO 的官方网站下载并安装：https://min.io/download#/linux   

@@ -63,7 +63,9 @@
     - title: rust语言入门
       url: /blog/rust/language/example/example.html
     - title: rustfs安装应用
-      url: /blog/rust/rustfs/install/build.html               
+      url: /blog/rust/rustfs/install/build.html
+    - title: rustfs压测
+      url: /blog/rust/rustfs/install/stress_test.html                  
 - title: AI
   children:
     - title: idea集成AI

@@ -21,6 +21,9 @@ clone源码 https://github.com/rustfs/rustfs
 ## 编译工具
 ```shell
 wsl --install -d Ubuntu-22.04
+wsl -d Ubuntu-22.04
+sudo -s  # 切换到root用户
+
 
 # 安装依懒工具
 sudo apt update
@@ -146,8 +149,9 @@ echo "operation success done!"
 ```shell
 # 多机多盘模式
 sudo tee /etc/default/rustfs <<EOF
-RUSTFS_ACCESS_KEY=rustfsadmin
-RUSTFS_SECRET_KEY=rustfsadmin
+RUSTFS_ACCESS_KEY=accessrustfsadmin
+RUSTFS_SECRET_KEY=secretrustfsadmin
+RUSTFS_RPC_SECRET=rpcrustfsadmin
 RUSTFS_VOLUMES="http://test-rustfs-{1...4}.hiido.host.int.yy.com:9000/data{1...12}/rustfs"
 RUSTFS_ADDRESS=":9000"
 RUSTFS_CONSOLE_ENABLE=true
@@ -276,7 +280,7 @@ mc --version
 配置 RustFS 服务端地址和访问凭证：  
 首先需要使用 mc alias 命令配置 RustFS 的别名：  
 ```shell
-mc alias set rustfs http://test-rustfs-1.hiido.host.int.yy.com:9000 rustfsadmin rustfsadmin
+mc alias set rustfs http://test-rustfs-1.hiido.host.int.yy.com:9000 accessrustfsadmin secretrustfsadmin
 # lvs
 mc alias set rustfs http://test-rustfs-lb.hiido.host.int.yy.com:80 rustfsadmin rustfsadmin
 ```
@@ -297,6 +301,14 @@ mc ls rustfs/bucket-test01-by-mc/
 
 # 删除
 mc rb rustfs/bucket-test01-by-mc
+
+# 查看 admin信息
+mc admin info --debug rustfs
+mc admin info rustfs   #有bug兼容rustfs的bug，
+mc admin info --json rustfs 
+
+mc admin config get rustfs scanner
+
 
 ```
 ## 写一个读写resutfs例子

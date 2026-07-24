@@ -16,6 +16,7 @@ date: 2026-07-20
 ## 环境安装
 ```shell
 # pip安装tensorflow和tensorboard-plugin-profile
+apt-get install python3-pip
 
 pip install tensorflow==2.16.1
 sudo pip install tensorboard-plugin-profile==2.16.0
@@ -25,168 +26,154 @@ pip install  tensorflow-io boto3
 # 查看版本
 python3 -c "import tensorflow as tf; print('TF:', tf.__version__)"
 python3 -c "import tensorflow_io as tfio; print('TF-IO:', tfio.__version__)"
+
+
 ```
 
-## tensorFlow on RustFs压测
+## 压测数据逻辑
+/data1/test_data/tianmu 包含所有子目录，一共有144.5 G 和137891个文件，分别上传到hdfs和rustfs。 
+```shell
+find tianmu/ -type f | wc -l
+137891
+145G    tianmu
+```
+
+## 测试写
+
+### tensorFlow Write RustFs压测
 ```python
 import os
+import sys
 import time
-import io
-import boto3
+import glob
 import tensorflow as tf
-import tensorflow_io as tfio  # 💡 必须加上这一行，它会自动注册 s3:// 协议的底层 C++ 实现
+import tensorflow_io as tfio
 
 # ==============================================================================
-# 1. 基础配置信息
+# 1. 确保临时目录设置 (必须确保在 Shell 中 export TMPDIR=/data/tf_tmp)
 # ==============================================================================
-ENDPOINT_URL = 'http://rust-work.yy.com'
-ACCESS_KEY = 'accessrustfsadmin'
-SECRET_KEY = 'secretrustfsadmin'
-BUCKET_NAME = 'tf-profiler-benchmark'
-
-# 设置 TensorFlow 的 S3 环境变量（使 tf.data.TFRecordDataset 能直接识别 s3:// 协议）
-os.environ["AWS_ACCESS_KEY_ID"] = ACCESS_KEY
-os.environ["AWS_SECRET_ACCESS_KEY"] = SECRET_KEY
-os.environ["S3_ENDPOINT"] = ENDPOINT_URL
-os.environ["S3_USE_HTTPS"] = "0"        # RustFS 如果是 http 协议，必须设为 0
-os.environ["S3_VERIFY_SSL"] = "0"       # 禁用 SSL 证书验证
-
-# 模拟数据集大小：10 个 Shard 文件，每个 100MB
-NUM_SHARDS = 10
-RECORD_SIZE_BYTES = 1024 * 1024  # 单个样本 1MB
-RECORDS_PER_SHARD = 100          # 每个文件 100 个样本
-
-# Profiler 日志输出路径
-LOG_DIR = "./logdir/rustfs_profile"
+os.environ["TMPDIR"] = "/data/tf_tmp"
+os.environ["TMP"] = "/data/tf_tmp"
+os.environ["TEMP"] = "/data/tf_tmp"
 
 # ==============================================================================
-# 2. 准备阶段：向 RustFS 写入测试数据
+# 2. RustFS (S3 协议) 环境变量配置
 # ==============================================================================
-def prepare_test_data_on_rustfs():
-    """初始化 BUCKET 并生成 1GB 的 TFRecord 数据集"""
-    print(f"👉 正在初始化连接 RustFS 并准备测试数据...")
-    s3_client = boto3.client(
-        's3',
-        endpoint_url=ENDPOINT_URL,
-        aws_access_key_id=ACCESS_KEY,
-        aws_secret_access_key=SECRET_KEY
-    )
-    
-    # 创建 Bucket
+S3_ENDPOINT = "http://rust-work.yy.com"
+AWS_ACCESS_KEY_ID = "accessrustfsadmin"
+AWS_SECRET_ACCESS_KEY = "secretrustfsadmin"
+BUCKET_NAME = "benchmark-bucket"
+
+# 🧠 注意：S3_ENDPOINT 在 TensorFlow 底层通常需要去除 http:// 前缀或保持一致
+os.environ["S3_ENDPOINT"] = S3_ENDPOINT.replace("http://", "").replace("https://", "")
+os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
+os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
+os.environ["S3_USE_HTTPS"] = "0"
+os.environ["S3_VERIFY_SSL"] = "0"
+
+LOCAL_SRC_DIR = "/data1/test_data/tianmu"
+RUSTFS_TARGET_DIR = f"s3://{BUCKET_NAME}/tianmu_tfrecords"
+
+NUM_SHARDS = 100
+PROFILER_LOG_DIR = "./logdir/rustfs_write_profile"
+
+def ensure_bucket_exists():
+    """使用 TF 内部封装的 API 确认或尝试创建 Bucket"""
+    print(f"🪣 正在检查 RustFS Bucket [{BUCKET_NAME}] ...")
+    bucket_path = f"s3://{BUCKET_NAME}"
     try:
-        s3_client.create_bucket(Bucket=BUCKET_NAME)
-        print(f"✅ 成功创建 Bucket: {BUCKET_NAME}")
-    except s3_client.exceptions.BucketAlreadyExists:
-        pass
-    except s3_client.exceptions.BucketAlreadyOwnedByYou:
-        pass
+        if not tf.io.gfile.exists(bucket_path + "/"):
+            tf.io.gfile.makedirs(bucket_path + "/")
+            print(f"✅ Bucket 创建指令已发送: {BUCKET_NAME}")
+        else:
+            print(f"✅ Bucket 已存在: {BUCKET_NAME}")
+    except Exception as e:
+        print(f"⚠️ 桶检查/创建提示 (如果桶已由管理员预先建立可忽略): {e}")
 
-    # 生成一个标准 TFRecord 样本
-    dummy_bytes = b"X" * RECORD_SIZE_BYTES
-    feature = {'data': tf.train.Feature(bytes_list=tf.train.BytesList(value=[dummy_bytes]))}
+def serialize_file(filepath):
+    raw_bytes = tf.io.read_file(filepath)
+    filename = tf.strings.split(filepath, os.sep)[-1]
+    
+    feature = {
+        'filename': tf.train.Feature(bytes_list=tf.train.BytesList(value=[filename.numpy()])),
+        'data': tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_bytes.numpy()]))
+    }
     example = tf.train.Example(features=tf.train.Features(feature=feature))
-    serialized_example = example.SerializeToString()
+    return example.SerializeToString()
 
-    print(f"👉 开始上传 {NUM_SHARDS} 个 100MB 的大文件分片至 RustFS...")
-    
-    # 修复核心：在本地创建一个临时文件
-    local_temp_file = "temp_shard.tfrecord"
-    
-    # 1. 先把数据写入本地这个临时文件
-    with tf.io.TFRecordWriter(local_temp_file) as writer:
-        for _ in range(RECORDS_PER_SHARD):
-            writer.write(serialized_example)
+def run_rustfs_write_benchmark():
+    ensure_bucket_exists()
 
-    # 2. 循环将这个本地文件上传到 RustFS 的不同位置
-    try:
-        for shard_idx in range(NUM_SHARDS):
-            key_name = f"data/shard_{shard_idx}.tfrecord"
-            
-            # 使用 upload_file 直接上传本地路径
-            s3_client.upload_file(local_temp_file, BUCKET_NAME, key_name)
-            print(f"   [已上传] s3://{BUCKET_NAME}/{key_name}")
-    finally:
-        # 3. 上传完成后，清理本地临时文件，不占用服务器磁盘空间
-        if os.path.exists(local_temp_file):
-            os.remove(local_temp_file)
+    print(f"🔍 正在扫描本地目录: {LOCAL_SRC_DIR} ...")
+    all_files = glob.glob(f"{LOCAL_SRC_DIR}/**/*", recursive=True)
+    all_files = [f for f in all_files if os.path.isfile(f)]
+    total_files = len(all_files)
+    print(f"✅ 共扫描到 {total_files} 个文件")
 
-    print("🎉 压测数据准备就绪！\n")
-
-# ==============================================================================
-# 3. 压测阶段：tf.data 并发读取 + tf.profiler 性能采样
-# ==============================================================================
-def run_rustfs_io_profiler():
-    print("\n🚀 正在构建 TensorFlow 高并发 I/O 管道 (强力压测版)...")
+    files_per_shard = total_files // NUM_SHARDS
     
-    # 匹配刚刚上传的所有大文件分片
-    file_pattern = f"s3://{BUCKET_NAME}/data/shard_*.tfrecord"
-    
-    # 1. 找到所有文件路径
-    files_ds = tf.data.Dataset.list_files(file_pattern, shuffle=False)
-    
-    # 💡 强力加压改动 1：使用 AUTOTUNE 让系统自动或强制使用最大 CPU 核心数进行并发读取
-    # cycle_length 决定了同时打开并读取的文件数量
-    dataset = files_ds.interleave(
-        lambda filename: tf.data.TFRecordDataset(filename, buffer_size=16 * 1024 * 1024), # 每个文件给 16MB 读缓冲区
-        cycle_length=NUM_SHARDS,               # 10个分片同时并发拉取
-        block_length=16,                       # 每次从一个文件连续读 16 个 record，减少线程切换
-        num_parallel_calls=tf.data.AUTOTUNE    # 开启异步多线程并行交错读取
-    )
-    
-    # 💡 强力加压改动 2：加大 Batch 块大小，降低 CPU 的迭代循环次数开销
-    dataset = dataset.batch(512) 
-    
-    # 💡 强力加压改动 3：狂拉预取缓存区（Prefetch）
-    # 让网络层不等 CPU 消费完，就提前在内存里囤积大量的 batch，直接把 RustFS 的带宽拉满
-    dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-
-    # 启动 tf.profiler 采样
-    log_dir = "./logdir/rustfs_profile"
-    print(f"📸 启动 tf.profiler。采样日志将保存在: {log_dir}")
-    
-    tf.profiler.experimental.start(log_dir)
+    print("\n📸 启动 TensorFlow Profiler 捕获 RustFS 写入性能...")
+    tf.profiler.experimental.start(PROFILER_LOG_DIR)
     
     start_time = time.time()
-    total_batches = 0
-    
-    print("⏳ 正在全力轰炸 RustFS 存储层中...")
+    total_bytes_written = 0
+
     try:
-        # 💡 强力加压改动 4：彻底移除原先的 tf.io.decode_raw 和 tf.reduce_sum 计算
-        # 换成最纯粹的空转迭代，让 CPU 100% 的精力都用来从网卡搬运数据
-        for batch in dataset:
-            total_batches += 1
-            # pass 掉任何计算，只保留纯粹的 I/O 流
-            pass
-            
+        for shard_idx in range(NUM_SHARDS):
+            shard_path = f"{RUSTFS_TARGET_DIR}/shard_{shard_idx:04d}.tfrecord"
+            shard_files = all_files[shard_idx * files_per_shard : (shard_idx + 1) * files_per_shard]
+            if shard_idx == NUM_SHARDS - 1:
+                shard_files = all_files[shard_idx * files_per_shard:]
+
+            with tf.io.TFRecordWriter(shard_path) as writer:
+                for file_path in shard_files:
+                    serialized_bytes = serialize_file(file_path)
+                    writer.write(serialized_bytes)
+                    total_bytes_written += len(serialized_bytes)
+
+            print(f"   [RustFS 写入] 完成分片 {shard_idx + 1}/{NUM_SHARDS} -> {shard_path}")
+
     finally:
-        # 确保哪怕报错也能正常安全关闭并保存 profile 日志
         tf.profiler.experimental.stop()
-        print("2026-07-20 16:05:06.608902: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:131] Profiler session tear down.")
-        
-    end_time = time.time()
-    elapsed = end_time - start_time
-    
-    print(f"\n🎉 压测完成！")
-    print(f"⏱️ 耗时: {elapsed:.2f} 秒")
-    print(f"📦 成功消费 Batch 数量: {total_batches}")
+        print("📸 Profiler 采样结束并成功保存日志！")
+
+    elapsed = time.time() - start_time
+    total_gb = total_bytes_written / (1024 ** 3)
+    throughput_mb = (total_bytes_written / (1024 ** 2)) / elapsed
+
+    print("=" * 60)
+    print(f"🎉 RustFS 真实 TFRecord 写入压测完成！")
+    print(f"⏱️ 总耗时   : {elapsed:.2f} 秒")
+    print(f"📦 写入数据 : {total_gb:.2f} GB")
+    print(f"🚀 平均吞吐 : {throughput_mb:.2f} MB/s")
+    print("=" * 60)
 
 if __name__ == "__main__":
-    # 1. 初始化 RustFS 数据
-    prepare_test_data_on_rustfs()
-    
-    # 2. 运行带 Profiler 的 I/O 压测
-    run_rustfs_io_profiler()
+    run_rustfs_write_benchmark()
+
+```
+output:
+```log
+...
+📸 Profiler 采样结束并成功保存日志！
+============================================================
+🎉 RustFS 真实 TFRecord 写入压测完成！
+⏱️ 总耗时   : 5059.42 秒
+📦 写入数据 : 144.52 GB
+🚀 平均吞吐 : 29.25 MB/s
+============================================================
 ```
 
-这段代码展示了如何在 TensorFlow 中使用 RustFS 作为后端存储，并通过 tf.data API 进行高并发 I/O 操作。通过设置环境变量和利用 boto3 客户端与 S3 兼容的 RustFS 服务交互，实现了数据的上传、读取以及性能分析的全   
+这段代码展示了如何在 TensorFlow 中使用 RustFS 作为后端存储，并通过 tf.data API 进行高并发 I/O 操作。通过设置环境变量和利用 boto3 客户端与 S3 兼容的 RustFS 服务交互，实现了数据的上传、读取以及性能分析的全 
+tensorFlow写s3时会在本地生成临时文件，然后上传到RustFS，因为对象存储是 不可变（Immutable） 的。在测试结束后，它会清理这些本地临时文件以释放磁盘空间，注意/tmp目录的空间大小，如果太小需要软连到大磁盘上。
 
- ### 启动tensorboard 
+
+ #### 启动tensorboard 
  指标说明文档：<a href="https://www.tensorflow.org/guide/data_performance_analysis?hl=zh-cn">使用 TF Profiler 分析 tf.data 性能</a>  
 
-`tensorboard --logdir ./logdir/rustfs_profile --bind_all --port 6006`  
-![alt text](images/04-image.png)
 
-## 测试tensorFlow读写HDFS
+
+### 测试tensorFlow Write HDFS
 环境安装：
 ```shell
 apt-get install openjdk-8-jre
@@ -218,122 +205,176 @@ export CLASSPATH=$HADOOP_CONF_DIR:$(hadoop classpath --glob)
 export HADOOP_SECURITY_AUTHENTICATION="kerberos"
 ```
 
-### 测试代码
-
+#### 测试代码
+python 代码  
 ```python
 import os
 import sys
 import time
+import glob
 import tensorflow as tf
-import tensorflow_io as tfio  # 确保导入了 tfio 以注册 hdfs 模块
+import tensorflow_io as tfio
 
 # ==============================================================================
-# 1. HDFS 配置信息
+# 1. HDFS 配置 (替换为你实际的 NameNode IP 和 端口)
 # ==============================================================================
-HDFS_NAMENODE = "hdfs://yycluster01"
-HDFS_BASE_DIR = f"{HDFS_NAMENODE}/tmp/tf_bench"
+HDFS_NAMENODE = "yycluster01"    # 🧠 请修改为真实的 HDFS NameNode 地址和端口
+HDFS_TARGET_DIR = f"hdfs://{HDFS_NAMENODE}/user/liangrui06/tianmu_tfrecords"
 
-KEYTAB_FILE = "/home/liangrui06/test-hiido2.keytab"
-PRINCIPAL = "test-hiido2@TESTCLUSTER.COM"
+LOCAL_SRC_DIR = "/data1/test_data/tianmu"
+NUM_SHARDS = 100
+PROFILER_LOG_DIR = "./logdir/hdfs_write_profile"
 
-def init_kerberos():
-    """在脚本启动时，强制执行 kinit 刷新票据"""
-    print(f"🔐 正在通过 Keytab 进行 Kerberos 认证...")
-    kinit_cmd = f"kinit -kt {KEYTAB_FILE} {PRINCIPAL}"
-    status = os.system(kinit_cmd)
-    if status != 0:
-        raise RuntimeError("❌ Kerberos 认证失败，请检查 Keytab 路径和 Principal 是否正确！")
-    print("✅ Kerberos 认证成功，已获取有效票据。")
+def ensure_hdfs_dir_exists(target_dir):
+    """确保 HDFS 上的目标目录存在"""
+    print(f"📁 正在检查并确保 HDFS 目录存在: {target_dir}")
+    if not tf.io.gfile.exists(target_dir):
+        tf.io.gfile.makedirs(target_dir)
+        print(f"✅ 成功创建 HDFS 目录")
+    else:
+        print(f"✅ HDFS 目录已存在")
 
-NUM_SHARDS = 10
-RECORD_SIZE_BYTES = 1024 * 1024  # 单个样本 1MB
-RECORDS_PER_SHARD = 100          # 每个文件 100 个样本
-
-# ==============================================================================
-# 2. 准备阶段：向 HDFS 写入测试数据
-# ==============================================================================
-def prepare_test_data_on_hdfs():
-    print(f"\n👉 正在初始化连接 HDFS 并准备测试数据...")
+def serialize_file(filepath):
+    raw_bytes = tf.io.read_file(filepath)
+    filename = tf.strings.split(filepath, os.sep)[-1]
     
-    if not tf.io.gfile.exists(HDFS_BASE_DIR):
-        tf.io.gfile.makedirs(HDFS_BASE_DIR)
-        print(f"✅ 成功创建 HDFS 目录: {HDFS_BASE_DIR}")
-
-    dummy_bytes = b"X" * RECORD_SIZE_BYTES
-    feature = {'data': tf.train.Feature(bytes_list=tf.train.BytesList(value=[dummy_bytes]))}
+    feature = {
+        'filename': tf.train.Feature(bytes_list=tf.train.BytesList(value=[filename.numpy()])),
+        'data': tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_bytes.numpy()]))
+    }
     example = tf.train.Example(features=tf.train.Features(feature=feature))
-    serialized_example = example.SerializeToString()
+    return example.SerializeToString()
 
-    print(f"👉 开始上传 {NUM_SHARDS} 个 100MB 的大文件分片至 HDFS...")
-    write_start_time = time.time()
-    
-    for shard_idx in range(NUM_SHARDS):
-        hdfs_path = f"{HDFS_BASE_DIR}/shard_{shard_idx}.tfrecord"
-        with tf.io.TFRecordWriter(hdfs_path) as writer:
-            for _ in range(RECORDS_PER_SHARD):
-                writer.write(serialized_example)
-        print(f"   [已写入] {hdfs_path}")
+def run_hdfs_write_benchmark():
+    ensure_hdfs_dir_exists(HDFS_TARGET_DIR)
 
-    write_elapsed = time.time() - write_start_time
-    print(f"🎉 HDFS 压测数据准备就绪！")
-    print(f"📊 [写入性能] HDFS 写入耗时: {write_elapsed:.2f} 秒，吞吐量: {1000 / write_elapsed:.2f} MB/s\n")
+    print(f"🔍 正在扫描本地目录: {LOCAL_SRC_DIR} ...")
+    all_files = glob.glob(f"{LOCAL_SRC_DIR}/**/*", recursive=True)
+    all_files = [f for f in all_files if os.path.isfile(f)]
+    total_files = len(all_files)
+    print(f"✅ 共扫描到 {total_files} 个文件")
 
-# ==============================================================================
-# 3. 压测阶段：HDFS + tf.data 高并发读取
-# ==============================================================================
-def run_hdfs_io_profiler():
-    print("\n🚀 正在构建 TensorFlow 高并发 HIO 管道 (HDFS 强力压测版)...")
+    files_per_shard = total_files // NUM_SHARDS
     
-    file_pattern = f"{HDFS_BASE_DIR}/shard_*.tfrecord"
-    files_ds = tf.data.Dataset.list_files(file_pattern, shuffle=False)
-    
-    dataset = files_ds.interleave(
-        lambda filename: tf.data.TFRecordDataset(filename, buffer_size=16 * 1024 * 1024),
-        cycle_length=NUM_SHARDS,
-        block_length=16,
-        num_parallel_calls=tf.data.AUTOTUNE
-    )
-    
-    dataset = dataset.batch(512)
-    dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-
-    log_dir = "./logdir/hdfs_profile"
-    print(f"📸 启动 tf.profiler。采样日志将保存在: {log_dir}")
-    
-    tf.profiler.experimental.start(log_dir)
+    print("\n📸 启动 TensorFlow Profiler 捕获 HDFS 写入性能...")
+    tf.profiler.experimental.start(PROFILER_LOG_DIR)
     
     start_time = time.time()
-    total_batches = 0
-    
-    print("⏳ 正在全力轰炸 HDFS 存储层中...")
+    total_bytes_written = 0
+
     try:
-        for batch in dataset:
-            total_batches += 1
-            pass
+        for shard_idx in range(NUM_SHARDS):
+            shard_path = f"{HDFS_TARGET_DIR}/shard_{shard_idx:04d}.tfrecord"
+            shard_files = all_files[shard_idx * files_per_shard : (shard_idx + 1) * files_per_shard]
+            if shard_idx == NUM_SHARDS - 1:
+                shard_files = all_files[shard_idx * files_per_shard:]
+
+            # HDFS 写入是网络 Streaming 模式，不会写爆本地盘
+            with tf.io.TFRecordWriter(shard_path) as writer:
+                for file_path in shard_files:
+                    serialized_bytes = serialize_file(file_path)
+                    writer.write(serialized_bytes)
+                    total_bytes_written += len(serialized_bytes)
+
+            print(f"   [HDFS 写入] 完成分片 {shard_idx + 1}/{NUM_SHARDS} -> {shard_path}")
+
     finally:
         tf.profiler.experimental.stop()
-        print("Profiler session tear down.")
-        
-    end_time = time.time()
-    elapsed = end_time - start_time
-    
-    print(f"\n🎉 HDFS 读取压测完成！")
-    print(f"⏱️ [读取性能] 耗时: {elapsed:.2f} 秒")
-    print(f"📦 吞吐率: {1000 / elapsed:.2f} MB/s")
-    print(f"📦 成功消费 Batch 数量: {total_batches}")
+        print("📸 Profiler 采样结束并成功保存日志！")
+
+    elapsed = time.time() - start_time
+    total_gb = total_bytes_written / (1024 ** 3)
+    throughput_mb = (total_bytes_written / (1024 ** 2)) / elapsed
+
+    print("=" * 60)
+    print(f"🎉 HDFS 真实 TFRecord 写入压测完成！")
+    print(f"⏱️ 总耗时   : {elapsed:.2f} 秒")
+    print(f"📦 写入数据 : {total_gb:.2f} GB")
+    print(f"🚀 平均吞吐 : {throughput_mb:.2f} MB/s")
+    print("=" * 60)
 
 if __name__ == "__main__":
-    init_kerberos()
-    prepare_test_data_on_hdfs()
-    run_hdfs_io_profiler()
+    run_hdfs_write_benchmark()
 ```
-运行:   
-`python3 hdfsStressTest.py `    
+运行输出:   
+```shell 
+python3 hdfsStressTest.py
+
+# output:
+...
+📸 Profiler 采样结束并成功保存日志！
+============================================================
+🎉 HDFS 真实 TFRecord 写入压测完成！
+⏱️ 总耗时   : 3780.97 秒
+📦 写入数据 : 144.52 GB
+🚀 平均吞吐 : 39.14 MB/s
+============================================================
+```    
 查看压测报告:  
-`tensorboard --logdir ./logdir/hdfs_profile --bind_all --port 6007`    
+```shell
+tensorboard --logdir ./logdir/rustfs_write_profile --bind_all --port 6006
+tensorboard --logdir ./logdir/hdfs_write_profile --bind_all --port 6007
+
+```    
 
 
-/data1/test_data/tianmu包含所有子目录，一共有144.5 G 和137891个文件。分别上传到hdfs和rustfs  
+### 写测试总结
+RustFs：在客户端组装数据，消耗客户端的性能和磁盘做组装，在写rustfs服务端的时候直接写一个完整的数据格式，就会很快。
+HDFS：客户端是直接和hdfs服务端进行交互，一点一点的写，不在客户端做过多的处理，但会和服务端有N多个写的交互，服务端会消耗过多的资源写数据。   
+**通过服务器监控指标也可以说明这一点：**   
+客户端磁盘监控：  
+![alt text](images/05-image.png)  
+10：30-12：00是rustfs在压测，对应的数据盘（/data1在读取数据，但他会写在系统/tmp下组装TF格式的数据后写入在本地（可以看到/根盘io和容量很大））    
+14：50-16：00是hdfs在压测，对应的数据盘（/data1在读取数据，但他会直接写到hdfs服务端上），不会消耗系统盘的任何资源。  
+
+**服务端磁盘监控：**    
+HDFS:服务端磁盘IO相对很高  
+![alt text](images/06-image.png)
+
+RustFS:服务端磁盘IO很低，因为数据组装在客户端完成，直接写完整的数据格式。  
+![alt text](images/07-image.png)
+
+**HDFS vs RustFS 写入机制全景对比：**   
+
+| 维度 | RustFS (S3 对象存储) | HDFS (分布式文件系统) |
+| --- | --- | --- |
+| 客户端行为 | 重客户端 (Heavy Client)在本地缓冲/拼装完整文件，再批量上传 | 轻客户端 (Light Client)仅做简单分块和 Stream 转发，不做大文件本地落盘 |
+| 客户端资源消耗 | 消耗本地磁盘 IO 与 临时空间（如果磁盘慢，客户端会成为瓶颈） | 极低 CPU / 极低磁盘占用（几乎只消耗网络内存 Buffer） |
+| 交互模式 | 少次、大块的 HTTP 请求（通过 1 个或几个 Multipart API 搞定） | 频繁、流式的 TCP / Socket 交互（每次追加/写 block 都要与 DataNode 交互） |
+| 服务端压力 | 压力小、简单高吞吐；服务端只管接收连续的 Chunk/Object，处理非常高效 | 压力大、元数据与连接繁重；NameNode 要频繁维护 Block 映射，DataNode 承担实时 Sync 和副本复制压力 |
+| 写入网络特性 | 突发型高吞吐（Burst High Bandwidth），本地拼装好后一次性打满带宽上传 | 平滑型持续网络（Continuous Streaming），随着数据产生持续稳定发送 |
+
+## 测试读
+
+
+## minIO工具warp压测
+install warp  
+```shell
+dpkg -i warp_1.5.0_amd64.deb
+
+warp --version
+warp version v1.5.0 - ddb528b
+
+# 配置环境变量
+export WARP_ACCESS_KEY_ID=accessrustfsadmin
+export WARP_SECRET_ACCESS_KEY=secretrustfsadmin
+
+
+warp mixed \
+  --host=http://rust-work.yy.com \
+  --access-key="$WARP_ACCESS_KEY_ID" \
+  --secret-key="$WARP_SECRET_ACCESS_KEY" \
+  --obj.size=10MiB \
+  --concurrent=32 \
+  --duration=5m \
+  --bucket=warptest \
+  --insecure
+
+
+```
+
+
+
 
 <div class="post-date">
   <span class="calendar-icon">📅</span>
